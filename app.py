@@ -135,21 +135,11 @@ def main():
     if len(rows) > preview_rows:
         st.caption(f"Mostrate le prime {preview_rows} righe di {len(rows)} totali")
 
-    # Sezione 3: Configurazione
-    st.header("⚙️ 3. Configurazione")
-
-    limit_labels = st.number_input(
-        "Limite etichette (0 = tutte)",
-        min_value=0,
-        max_value=len(rows),
-        value=0,
-        help="Utile per test. 0 genera tutte le etichette."
-    )
-
-    # Pattern fisso, non modificabile dall'utente
+    # Pattern fisso e genera tutte le etichette
     filename_pattern = DEFAULT_FILENAME_PATTERN
+    limit_labels = 0
 
-    # Sezione 4: Validazione
+    # Sezione 3: Validazione
     st.header("✓ 3. Validazione")
 
     try:
@@ -188,11 +178,11 @@ def main():
         st.error(f"❌ Errore nella validazione: {str(e)}")
         st.stop()
 
-    # Sezione 5: Generazione
+    # Sezione 4: Generazione
     st.header("🚀 4. Genera Etichette")
 
-    # Determina quante etichette generare
-    num_labels = limit_labels if limit_labels > 0 else len(rows)
+    # Genera tutte le etichette
+    num_labels = len(rows)
 
     # Bottone genera
     if st.button("🏷️ Genera Etichette DYMO", type="primary", width="stretch"):
@@ -203,7 +193,7 @@ def main():
                     template_xml,
                     rows,
                     filename_pattern,
-                    limit=limit_labels if limit_labels > 0 else None
+                    limit=None
                 )
 
                 # Crea ZIP
