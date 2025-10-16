@@ -43,11 +43,13 @@ env/
 # Output files (generated DYMO labels)
 out/
 
-# Data files (if sensitive - uncomment if needed)
-# data.xlsx
-# *.xlsx
-# *.xls
-# *.csv
+# Data files - production data excluded
+data_test.xlsx
+teamplate_text.txt
+
+# Sample/demo files are tracked
+# data.xlsx is kept in git as an example
+# template_update.dymo is TRACKED (needed for web app)
 
 # OS
 Thumbs.db
@@ -59,3 +61,7 @@ Thumbs.db
 # Environment variables
 .env
 .env.local
+
+# Streamlit
+.streamlit/secrets.toml
+.streamlit/*_cache/
