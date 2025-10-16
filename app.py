@@ -25,15 +25,62 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# Custom CSS per brand BAMBOOM
+st.markdown("""
+<style>
+    /* Brand colors e styling */
+    .stButton>button {
+        border-radius: 8px;
+        font-weight: 500;
+        border: 1px solid #E6E4E0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+
+    .stButton>button:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    /* Success/info messages con brand colors */
+    .stSuccess {
+        background-color: rgba(142, 163, 149, 0.1);
+        border-left: 4px solid #8EA395;
+    }
+
+    .stInfo {
+        background-color: rgba(191, 201, 194, 0.1);
+        border-left: 4px solid #BFC9C2;
+    }
+
+    /* Spacing migliorato */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+
+    /* Tabelle più eleganti */
+    .stDataFrame {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Template path (hardcoded come richiesto)
 TEMPLATE_PATH = Path("template_update.dymo")
 DEFAULT_FILENAME_PATTERN = "{Code}_{Color}_{Size}.dymo"
 
 
 def main():
-    # Header
-    st.title("🏷️ Generatore Etichette DYMO")
-    st.markdown("**Bamboom** - Carica il tuo file Excel e genera le etichette DYMO")
+    # Header con Logo
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        try:
+            st.image("logo.png", width=300)
+        except:
+            st.title("🏷️ BAMBOOM")
+
+    st.markdown("<h2 style='text-align: center;'>Generatore Etichette DYMO</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #8E8E8E;'>Carica il tuo file Excel e genera le etichette DYMO</p>", unsafe_allow_html=True)
     st.divider()
 
     # Verifica che il template esista
@@ -83,7 +130,7 @@ def main():
 
     # Mostra le prime 10 righe
     preview_rows = min(10, len(rows))
-    st.dataframe(df.head(preview_rows), use_container_width=True)
+    st.dataframe(df.head(preview_rows), width="stretch")
 
     if len(rows) > preview_rows:
         st.caption(f"Mostrate le prime {preview_rows} righe di {len(rows)} totali")
@@ -165,7 +212,7 @@ def main():
     num_labels = limit_labels if limit_labels > 0 else len(rows)
 
     # Bottone genera
-    if st.button("🏷️ Genera Etichette DYMO", type="primary", use_container_width=True):
+    if st.button("🏷️ Genera Etichette DYMO", type="primary", width="stretch"):
         try:
             with st.spinner(f"Generazione di {num_labels} etichette in corso..."):
                 # Genera etichette
@@ -207,7 +254,7 @@ def main():
             file_name=zip_filename,
             mime="application/zip",
             type="primary",
-            use_container_width=True
+            width="stretch"
         )
 
         st.success(f"✅ {num_labels} file .dymo pronti per il download!")
