@@ -20,7 +20,7 @@ from utils import (
 # Configurazione pagina
 st.set_page_config(
     page_title="Generatore Etichette DYMO - Bamboom",
-    page_icon="🏷️",
+    page_icon="favicon.jpg",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
