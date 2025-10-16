@@ -1,0 +1,127 @@
+Got it. Here’s a crisp brand-to-dashboard style guide based on the logo and site shots you shared (BAMBOOM+).
+
+Brand essence
+
+Mood: calm, natural, premium, “designed in Italy.”
+
+Personality: soft, caring, eco-conscious, confident but not loud.
+
+Visual rhythm: lots of air/whitespace, centered compositions, gentle contrast.
+
+Color system (proposed tokens)
+
+Match these to the exact brand values if you have them—these are faithful approximations to what I see.
+
+Ink / Primary: #111111 (wordmark / primary text)
+
+Sage / Accent: #BFC9C2 (the site’s soft green)
+
+Moss / Accent-darker: #8EA395
+
+Cream / Canvas: #F5F2ED (backgrounds behind images/sections)
+
+Warm Gray / Subtext: #8E8E8E
+
+Line / Divider: #E6E4E0
+
+Data viz accents (use sparingly, 1–2 per chart):
+
+Leaf: #9FB7A5
+
+Clay: #C9B3A3
+
+Dusk: #94A3AF
+
+Typography
+
+Headlines (brand feel): elegant serif with soft contrast.
+Options: Cormorant Garamond, Playfair Display, Fraunces (optical size friendly).
+
+UI & body (readability): humanist/geometric sans.
+Options: Inter, Source Sans 3, Atkinson Hyperlegible.
+
+Pairing example
+
+H1/H2: Cormorant Garamond (600) — tracking slightly tight (-1%).
+
+Body/UI: Inter (400/500) — line-height 1.5.
+
+Layout & components
+
+Whitespace: generous. Section paddings 40–64 px desktop, 24–32 px mobile.
+
+Corners: subtle radius (6–8 px).
+
+Shadows: very soft (ambient), e.g. 0 2px 12px rgba(0,0,0,0.06).
+
+Borders: hairline 1px solid #E6E4E0 on cards/tables.
+
+Buttons: primary = Ink text on Cream with outline; hover fills with Ink on Cream reverse. Secondary = ghost/underline.
+
+Icons: thin line-icons (stroke 1.5 px), rounded ends.
+
+Imagery
+
+Palette: neutral & earthy, soft natural light.
+
+Surfaces: fabric, wood, matte textures; avoid high-sat colors.
+
+Framing: centered, breathing room, minimal props.
+
+Tone of voice (UI copy)
+
+Calm, warm, direct. Prefer verbs like View, Track, Compare.
+
+Microcopy uses sentence case; no exclamation marks.
+
+Dashboard guidance (for “Lolo”)
+
+Overall goal: keep it serene and trustworthy; data should “sit” in the UI, not shout.
+
+Navigation
+
+Top app bar: white/cream with Ink text, 56–64 px height.
+
+Left rail (if needed): icons + short labels; selected state = Ink with a Sage left border.
+
+Cards
+
+3–4 cards per row (desktop), each:
+
+Padding 20–24 px; title in serif, metric in large sans.
+
+Subtitle/Δ% in Warm Gray; positive = Moss (#8EA395), negative = Clay-red (#C98A82).
+
+Tables
+
+Zebra subtle with #FAF9F7.
+
+Header: medium weight sans, Ink; cells 14 px, 48 px row height.
+
+Hover row: background #F6F4F1.
+
+Charts (minimalist)
+
+Bar/line: single accent (Leaf), everything else grayscale.
+
+Hide heavy gridlines; keep only Y major lines in #ECEAE6.
+
+Axis labels 12–13 px, Warm Gray.
+
+Legends inline, small dots.
+
+Target lines (e.g., benchmarks): 1 px dashed #CFCAC3.
+
+Status colors
+
+Success: #86A892 (Moss)
+
+Warning: #D1B38C (Wheat)
+
+Error: #C98A82 (Clay-red)
+
+Info: #94A3AF (Dusk)
+
+Empty states / loaders
+
+Gentle skeletons in #F0EEEA; short, friendly single-line guidance.
