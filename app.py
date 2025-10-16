@@ -138,26 +138,19 @@ def main():
     # Sezione 3: Configurazione
     st.header("⚙️ 3. Configurazione")
 
-    col1, col2 = st.columns(2)
+    limit_labels = st.number_input(
+        "Limite etichette (0 = tutte)",
+        min_value=0,
+        max_value=len(rows),
+        value=0,
+        help="Utile per test. 0 genera tutte le etichette."
+    )
 
-    with col1:
-        filename_pattern = st.text_input(
-            "Pattern nome file",
-            value=DEFAULT_FILENAME_PATTERN,
-            help="Usa le intestazioni delle colonne tra graffe. Es: {Code}_{Color}_{Size}.dymo"
-        )
-
-    with col2:
-        limit_labels = st.number_input(
-            "Limite etichette (0 = tutte)",
-            min_value=0,
-            max_value=len(rows),
-            value=0,
-            help="Utile per test. 0 genera tutte le etichette."
-        )
+    # Pattern fisso, non modificabile dall'utente
+    filename_pattern = DEFAULT_FILENAME_PATTERN
 
     # Sezione 4: Validazione
-    st.header("✓ 4. Validazione")
+    st.header("✓ 3. Validazione")
 
     try:
         template_xml = read_template(TEMPLATE_PATH)
@@ -196,17 +189,7 @@ def main():
         st.stop()
 
     # Sezione 5: Generazione
-    st.header("🚀 5. Genera Etichette")
-
-    # Mostra anteprima nome file
-    if rows:
-        example_filename = generate_labels(
-            template_xml,
-            rows[:1],
-            filename_pattern,
-            limit=1
-        )[0][0]
-        st.info(f"📄 Esempio nome file: `{example_filename}`")
+    st.header("🚀 4. Genera Etichette")
 
     # Determina quante etichette generare
     num_labels = limit_labels if limit_labels > 0 else len(rows)
@@ -232,15 +215,14 @@ def main():
                 st.session_state['generated'] = True
 
             st.success(f"✅ {len(labels)} etichette generate con successo!")
-            st.balloons()
 
         except Exception as e:
             st.error(f"❌ Errore durante la generazione: {str(e)}")
             st.exception(e)
 
-    # Sezione 6: Download
+    # Sezione 5: Download
     if st.session_state.get('generated', False):
-        st.header("⬇️ 6. Download")
+        st.header("⬇️ 5. Download")
 
         zip_data = st.session_state['zip_file']
         num_labels = st.session_state['num_labels']
