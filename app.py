@@ -356,32 +356,45 @@ def main():
         key="product_selector"
     )
 
-    # Update selection overrides using iloc for positional access
-    for idx in range(len(edited_df)):
-        # Use iloc to access by position instead of label (handles filtered/reset indices)
-        if idx < len(df):
-            edited_value = edited_df.iloc[idx]['Selected']
-            original_value = df.iloc[idx]['Selected']
-            if edited_value != original_value:
-                # Use original index if available (when filtered), otherwise use current index
-                if '_original_index' in edited_df.columns:
-                    orig_idx = edited_df.iloc[idx]['_original_index']
-                    st.session_state['selection_override'][orig_idx] = edited_value
+    # Update selection overrides ONLY for rows that actually changed
+    # Use st.session_state['product_selector']['edited_rows'] to detect changes efficiently
+    if 'product_selector' in st.session_state and 'edited_rows' in st.session_state['product_selector']:
+        edited_rows_dict = st.session_state['product_selector']['edited_rows']
+
+        for row_idx, changes in edited_rows_dict.items():
+            if 'Selected' in changes:
+                # Map display index to original index
+                if '_original_index' in df.columns:
+                    orig_idx = df.iloc[row_idx]['_original_index']
                 else:
-                    st.session_state['selection_override'][idx] = edited_value
+                    orig_idx = row_idx
+
+                # Update override with the new value
+                st.session_state['selection_override'][orig_idx] = changes['Selected']
+
+    # Recalculate selections on full dataset for accurate count
+    df_full_updated = df_full.copy()
+    for idx, override_value in st.session_state.get('selection_override', {}).items():
+        if idx < len(df_full_updated):
+            df_full_updated.at[idx, 'Selected'] = override_value
 
     # Selection summary - count from full dataset, not just filtered view
-    num_selected_total = df_full['Selected'].sum()
+    num_selected_total = df_full_updated['Selected'].sum()
     st.info(f"**{num_selected_total}** di **{total_products}** prodotti selezionati")
 
     if num_selected_total == 0:
         st.warning("⚠️ Nessun prodotto selezionato. Seleziona almeno un prodotto per continuare.")
         st.stop()
 
-    # Filter rows to only selected ones
-    selected_mask = edited_df['Selected'] == True
-    selected_df = edited_df[selected_mask].copy()
+    # Filter rows to only selected ones from the full updated dataset
+    selected_mask = df_full_updated['Selected'] == True
+    selected_df = df_full_updated[selected_mask].copy()
     selected_df = selected_df.drop(columns=['Selected'])  # Remove selection column
+
+    # Remove _original_index if it exists
+    if '_original_index' in selected_df.columns:
+        selected_df = selected_df.drop(columns=['_original_index'])
+
     selected_rows = selected_df.to_dict(orient="records")
 
     # Pattern fisso e genera tutte le etichette
