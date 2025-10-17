@@ -180,6 +180,8 @@ def main():
         st.session_state['selection_override'] = {}
     if 'desc_search' not in st.session_state:
         st.session_state['desc_search'] = ""
+    if 'groups_display_limit' not in st.session_state:
+        st.session_state['groups_display_limit'] = 5
 
     # Group filter
     all_groups = sorted(df['Group'].unique()) if 'Group' in df.columns else []
@@ -187,6 +189,9 @@ def main():
     if all_groups:
         # Calculate product counts per group
         group_counts = df['Group'].value_counts().to_dict()
+
+        # Sort groups by product count (descending)
+        sorted_groups = sorted(all_groups, key=lambda g: group_counts.get(g, 0), reverse=True)
 
         # Display groups as checkboxes in a grid
         st.markdown("**Seleziona gruppi:**")
@@ -199,8 +204,17 @@ def main():
             label_visibility="collapsed"
         )
 
-        # Filter groups based on search
-        filtered_groups = [g for g in all_groups if search_term.lower() in g.lower()]
+        # Determine which groups to display
+        if search_term:
+            # Search mode: show all matching groups
+            filtered_groups = [g for g in sorted_groups if search_term.lower() in g.lower()]
+            show_more_button = False
+        else:
+            # Normal mode: show top N groups based on display limit
+            display_limit = st.session_state.get('groups_display_limit', 5)
+            filtered_groups = sorted_groups[:display_limit]
+            remaining_groups = len(sorted_groups) - display_limit
+            show_more_button = remaining_groups > 0
 
         # Create columns for checkbox grid (5 per row)
         num_cols = 5
@@ -228,6 +242,26 @@ def main():
                             for idx in group_indices:
                                 if idx in st.session_state['selection_override']:
                                     del st.session_state['selection_override'][idx]
+
+        # Show "Mostra altri" or "Mostra meno" button
+        if show_more_button:
+            # There are more groups to show
+            col1, col2, col3 = st.columns([1, 1, 3])
+            with col1:
+                if st.button(f"Mostra altri ({remaining_groups})", key="show_more_groups", use_container_width=True):
+                    st.session_state['groups_display_limit'] += 10
+                    st.rerun()
+            # Show collapse button if we've expanded beyond initial 5
+            if st.session_state.get('groups_display_limit', 5) > 5:
+                with col2:
+                    if st.button("Mostra meno", key="show_less_groups", use_container_width=True):
+                        st.session_state['groups_display_limit'] = 5
+                        st.rerun()
+        elif st.session_state.get('groups_display_limit', 5) > 5:
+            # All groups shown but we're expanded - show only collapse button
+            if st.button("Mostra meno", key="show_less_groups_only", use_container_width=False):
+                st.session_state['groups_display_limit'] = 5
+                st.rerun()
 
         selected_groups = st.session_state['selected_groups']
     else:
