@@ -253,6 +253,8 @@ def main():
     if desc_search:
         desc_mask = df['Desc'].str.contains(desc_search, case=False, na=False)
         df = df[desc_mask].copy()
+        # Store original indices before resetting
+        df['_original_index'] = df.index
         # Reset index to avoid KeyError when accessing rows by position
         df.reset_index(drop=True, inplace=True)
 
@@ -261,32 +263,50 @@ def main():
     with link_col2:
         if st.button("Seleziona tutto", key="select_all_btn", help="Seleziona tutti i prodotti", use_container_width=True):
             df['Selected'] = True
-            st.session_state['selection_override'] = {i: True for i in range(len(df))}
+            # Use original indices if available (when filtered), otherwise use current indices
+            if '_original_index' in df.columns:
+                for i in range(len(df)):
+                    orig_idx = df.iloc[i]['_original_index']
+                    st.session_state['selection_override'][orig_idx] = True
+            else:
+                st.session_state['selection_override'] = {i: True for i in range(len(df))}
             st.rerun()
     with link_col3:
         if st.button("Deseleziona tutto", key="clear_all_btn", help="Deseleziona tutti i prodotti", use_container_width=True):
             df['Selected'] = False
-            st.session_state['selection_override'] = {i: False for i in range(len(df))}
+            # Use original indices if available (when filtered), otherwise use current indices
+            if '_original_index' in df.columns:
+                for i in range(len(df)):
+                    orig_idx = df.iloc[i]['_original_index']
+                    st.session_state['selection_override'][orig_idx] = False
+            else:
+                st.session_state['selection_override'] = {i: False for i in range(len(df))}
             st.rerun()
 
     # Interactive data editor
+    column_config = {
+        "Selected": st.column_config.CheckboxColumn(
+            "Seleziona",
+            help="Seleziona i prodotti per cui generare etichette",
+            default=False,
+        ),
+        "Desc": st.column_config.TextColumn(
+            "Desc",
+            help="Descrizione prodotto",
+            width="medium",
+        )
+    }
+
+    # Hide _original_index column if it exists
+    if '_original_index' in df.columns:
+        column_config["_original_index"] = None
+
     edited_df = st.data_editor(
         df,
         use_container_width=True,
         hide_index=True,
-        column_config={
-            "Selected": st.column_config.CheckboxColumn(
-                "Seleziona",
-                help="Seleziona i prodotti per cui generare etichette",
-                default=False,
-            ),
-            "Desc": st.column_config.TextColumn(
-                "Desc",
-                help="Descrizione prodotto",
-                width="medium",
-            )
-        },
-        disabled=[col for col in df.columns if col != 'Selected'],
+        column_config=column_config,
+        disabled=[col for col in df.columns if col not in ['Selected']],
         key="product_selector"
     )
 
@@ -297,7 +317,12 @@ def main():
             edited_value = edited_df.iloc[idx]['Selected']
             original_value = df.iloc[idx]['Selected']
             if edited_value != original_value:
-                st.session_state['selection_override'][idx] = edited_value
+                # Use original index if available (when filtered), otherwise use current index
+                if '_original_index' in edited_df.columns:
+                    orig_idx = edited_df.iloc[idx]['_original_index']
+                    st.session_state['selection_override'][orig_idx] = edited_value
+                else:
+                    st.session_state['selection_override'][idx] = edited_value
 
     # Selection summary - count from full dataset, not just filtered view
     num_selected_total = df_full['Selected'].sum()
