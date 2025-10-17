@@ -345,23 +345,7 @@ def main():
                 del st.session_state['product_selector']
             st.rerun()
 
-    # Apply manual overrides to display DataFrame so visual state matches actual selections
-    # This ensures checkboxes in data_editor reflect selections from bulk buttons and previous sessions
-    for idx, override_value in st.session_state.get('selection_override', {}).items():
-        # Map override index to current df index
-        if '_original_index' in df.columns:
-            # When filtered, find row with matching original index
-            matching_rows = df[df['_original_index'] == idx]
-            if len(matching_rows) > 0:
-                # Get the reset index (0-based position in filtered df)
-                display_idx = matching_rows.index[0]
-                df.at[display_idx, 'Selected'] = override_value
-        else:
-            # Not filtered, use index directly
-            if idx < len(df):
-                df.at[idx, 'Selected'] = override_value
-
-    # Interactive data editor
+    # Interactive data editor wrapped in form to prevent rerun on every click
     column_config = {
         "Selected": st.column_config.CheckboxColumn(
             "Seleziona",
@@ -379,38 +363,58 @@ def main():
     if '_original_index' in df.columns:
         column_config["_original_index"] = None
 
+    # Apply manual overrides to df to show current state in form
+    # This is safe because form prevents automatic reruns
+    for idx, override_value in st.session_state.get('selection_override', {}).items():
+        # Map override index to current df index
+        if '_original_index' in df.columns:
+            # When filtered, find row with matching original index
+            matching_rows = df[df['_original_index'] == idx]
+            if len(matching_rows) > 0:
+                # Get the reset index (0-based position in filtered df)
+                display_idx = matching_rows.index[0]
+                df.at[display_idx, 'Selected'] = override_value
+        else:
+            # Not filtered, use index directly
+            if idx < len(df):
+                df.at[idx, 'Selected'] = override_value
+
     # Store input df for comparison (to detect NEW changes)
     df_before_edit = df.copy()
 
-    # Pass df with current selection state to data_editor
-    # Visual checkboxes will match actual selections (group + manual overrides)
-    # Use versioned key: increments on bulk/group changes to force widget recreation
-    # but stays stable for manual selections to avoid disappearing checkboxes
-    edited_df = st.data_editor(
-        df,
-        use_container_width=True,
-        hide_index=True,
-        column_config=column_config,
-        disabled=[col for col in df.columns if col not in ['Selected']],
-        key=f"product_selector_{st.session_state['selection_version']}"
-    )
+    # Wrap data_editor in form to prevent rerun on every click
+    # This solves both disappearing checkbox and scroll reset issues
+    with st.form("product_selection_form", clear_on_submit=False):
+        # Pass df with current selection state (group + manual overrides)
+        # Form prevents rerun until submit button is clicked
+        edited_df = st.data_editor(
+            df,
+            use_container_width=True,
+            hide_index=True,
+            column_config=column_config,
+            disabled=[col for col in df.columns if col not in ['Selected']],
+            key=f"product_selector_{st.session_state['selection_version']}"
+        )
 
-    # Detect NEW manual selections by comparing input to output
-    # This avoids state conflicts with edited_rows
+        # Submit button to apply changes
+        submitted = st.form_submit_button("✓ Applica Selezioni", use_container_width=True, type="primary")
+
+    # Only process changes when form is submitted
     manual_selections = {}
-    for idx in range(len(df_before_edit)):
-        if idx < len(edited_df):
-            old_value = df_before_edit.iloc[idx]['Selected']
-            new_value = edited_df.iloc[idx]['Selected']
-            if old_value != new_value:
-                # User changed this row in THIS render
-                # Map display index to original index
-                if '_original_index' in df.columns:
-                    orig_idx = int(df.iloc[idx]['_original_index'])
-                else:
-                    orig_idx = idx
+    if submitted:
+        for idx in range(len(df_before_edit)):
+            if idx < len(edited_df):
+                old_value = df_before_edit.iloc[idx]['Selected']
+                new_value = edited_df.iloc[idx]['Selected']
+                if old_value != new_value:
+                    # User changed this row
+                    # Map display index to original index
+                    if '_original_index' in df.columns:
+                        orig_idx = int(df.iloc[idx]['_original_index'])
+                    else:
+                        orig_idx = idx
 
-                manual_selections[orig_idx] = new_value
+                    manual_selections[orig_idx] = new_value
 
     # Build final selection state for full dataset
     # Priority: manual_selections > selection_override > group_selections
