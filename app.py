@@ -182,6 +182,8 @@ def main():
         st.session_state['desc_search'] = ""
     if 'groups_display_limit' not in st.session_state:
         st.session_state['groups_display_limit'] = 5
+    if 'selection_version' not in st.session_state:
+        st.session_state['selection_version'] = 0
 
     # Group filter
     all_groups = sorted(df['Group'].unique()) if 'Group' in df.columns else []
@@ -243,6 +245,8 @@ def main():
                                 if idx in st.session_state['selection_override']:
                                     del st.session_state['selection_override'][idx]
 
+                            # Increment version to force widget recreation with clean state
+                            st.session_state['selection_version'] += 1
                             # Clear data_editor's edited_rows to remove manual selections for this group
                             if 'product_selector' in st.session_state:
                                 del st.session_state['product_selector']
@@ -319,6 +323,8 @@ def main():
                     st.session_state['selection_override'][orig_idx] = True
             else:
                 st.session_state['selection_override'] = {i: True for i in range(len(df))}
+            # Increment version to force widget recreation with clean state
+            st.session_state['selection_version'] += 1
             # Clear data_editor's edited_rows by deleting the widget state
             if 'product_selector' in st.session_state:
                 del st.session_state['product_selector']
@@ -332,6 +338,8 @@ def main():
                     st.session_state['selection_override'][orig_idx] = False
             else:
                 st.session_state['selection_override'] = {i: False for i in range(len(df))}
+            # Increment version to force widget recreation with clean state
+            st.session_state['selection_version'] += 1
             # Clear data_editor's edited_rows by deleting the widget state
             if 'product_selector' in st.session_state:
                 del st.session_state['product_selector']
@@ -376,13 +384,15 @@ def main():
 
     # Pass df with current selection state to data_editor
     # Visual checkboxes will match actual selections (group + manual overrides)
+    # Use versioned key: increments on bulk/group changes to force widget recreation
+    # but stays stable for manual selections to avoid disappearing checkboxes
     edited_df = st.data_editor(
         df,
         use_container_width=True,
         hide_index=True,
         column_config=column_config,
         disabled=[col for col in df.columns if col not in ['Selected']],
-        key="product_selector"
+        key=f"product_selector_{st.session_state['selection_version']}"
     )
 
     # Detect NEW manual selections by comparing input to output
