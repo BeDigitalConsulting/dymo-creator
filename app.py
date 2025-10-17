@@ -268,22 +268,22 @@ def main():
         selected_groups = []
         st.warning("⚠️ Colonna 'Group' non trovata nel file")
 
-    # Add selection column to both dataframes
-    if 'Selected' not in df.columns:
-        # Auto-select rows based on group filter
-        if selected_groups:
-            df.insert(0, 'Selected', df['Group'].isin(selected_groups))
-            df_full.insert(0, 'Selected', df_full['Group'].isin(selected_groups))
-        else:
-            df.insert(0, 'Selected', False)
-            df_full.insert(0, 'Selected', False)
+    # Create base selection state from group selections only
+    # This will be the "clean" base state for data_editor (no manual overrides)
+    if selected_groups:
+        base_selection = df['Group'].isin(selected_groups)
+        base_selection_full = df_full['Group'].isin(selected_groups)
+    else:
+        base_selection = pd.Series([False] * len(df), index=df.index)
+        base_selection_full = pd.Series([False] * len(df_full), index=df_full.index)
 
-    # Apply manual overrides from session state to BOTH dataframes
-    for idx, override_value in st.session_state.get('selection_override', {}).items():
-        if idx < len(df):
-            df.at[idx, 'Selected'] = override_value
-        if idx < len(df_full):
-            df_full.at[idx, 'Selected'] = override_value
+    # Add selection column for display DataFrame (group selections only, no overrides yet)
+    if 'Selected' not in df.columns:
+        df.insert(0, 'Selected', base_selection)
+
+    # For full DataFrame, combine group selections + manual overrides
+    if 'Selected' not in df_full.columns:
+        df_full.insert(0, 'Selected', base_selection_full)
 
     # Product search box (searches both Code and Desc)
     desc_search = st.text_input(
@@ -308,7 +308,6 @@ def main():
     link_col1, link_col2, link_col3 = st.columns([2.5, 1.0, 1.0])
     with link_col2:
         if st.button("Seleziona tutto", key="select_all_btn", help="Seleziona tutti i prodotti", use_container_width=True):
-            df['Selected'] = True
             # Use original indices if available (when filtered), otherwise use current indices
             if '_original_index' in df.columns:
                 for i in range(len(df)):
@@ -316,10 +315,12 @@ def main():
                     st.session_state['selection_override'][orig_idx] = True
             else:
                 st.session_state['selection_override'] = {i: True for i in range(len(df))}
+            # Clear data_editor's edited_rows to avoid conflicts with bulk action
+            if 'product_selector' in st.session_state:
+                st.session_state['product_selector'] = {'edited_rows': {}, 'added_rows': [], 'deleted_rows': []}
             st.rerun()
     with link_col3:
         if st.button("Deseleziona tutto", key="clear_all_btn", help="Deseleziona tutti i prodotti", use_container_width=True):
-            df['Selected'] = False
             # Use original indices if available (when filtered), otherwise use current indices
             if '_original_index' in df.columns:
                 for i in range(len(df)):
@@ -327,6 +328,9 @@ def main():
                     st.session_state['selection_override'][orig_idx] = False
             else:
                 st.session_state['selection_override'] = {i: False for i in range(len(df))}
+            # Clear data_editor's edited_rows to avoid conflicts with bulk action
+            if 'product_selector' in st.session_state:
+                st.session_state['product_selector'] = {'edited_rows': {}, 'added_rows': [], 'deleted_rows': []}
             st.rerun()
 
     # Interactive data editor
@@ -347,6 +351,8 @@ def main():
     if '_original_index' in df.columns:
         column_config["_original_index"] = None
 
+    # Pass clean df (group selections only) to data_editor
+    # Manual selections will be tracked via edited_rows
     edited_df = st.data_editor(
         df,
         use_container_width=True,
@@ -356,8 +362,9 @@ def main():
         key="product_selector"
     )
 
-    # Update selection overrides ONLY for rows that actually changed
-    # Use st.session_state['product_selector']['edited_rows'] to detect changes efficiently
+    # Process manual selections from edited_rows
+    # edited_rows contains ALL manual checkbox clicks relative to the clean base state
+    manual_selections = {}
     if 'product_selector' in st.session_state and 'edited_rows' in st.session_state['product_selector']:
         edited_rows_dict = st.session_state['product_selector']['edited_rows']
 
@@ -365,30 +372,40 @@ def main():
             if 'Selected' in changes:
                 # Map display index to original index
                 if '_original_index' in df.columns:
-                    orig_idx = df.iloc[row_idx]['_original_index']
+                    orig_idx = int(df.iloc[row_idx]['_original_index'])
                 else:
                     orig_idx = row_idx
 
-                # Update override with the new value
-                st.session_state['selection_override'][orig_idx] = changes['Selected']
+                manual_selections[orig_idx] = changes['Selected']
 
-    # Recalculate selections on full dataset for accurate count
-    df_full_updated = df_full.copy()
+    # Build final selection state for full dataset
+    # Priority: manual_selections > selection_override > group_selections
+    df_full_final = df_full.copy()
+
+    # Start with group selections (already in df_full['Selected'])
+    # Then apply stored overrides from previous sessions/filters
     for idx, override_value in st.session_state.get('selection_override', {}).items():
-        if idx < len(df_full_updated):
-            df_full_updated.at[idx, 'Selected'] = override_value
+        if idx < len(df_full_final):
+            df_full_final.at[idx, 'Selected'] = override_value
 
-    # Selection summary - count from full dataset, not just filtered view
-    num_selected_total = df_full_updated['Selected'].sum()
+    # Finally apply current manual selections (highest priority)
+    for idx, manual_value in manual_selections.items():
+        if idx < len(df_full_final):
+            df_full_final.at[idx, 'Selected'] = manual_value
+            # Also update selection_override to persist this choice
+            st.session_state['selection_override'][idx] = manual_value
+
+    # Selection summary - count from full dataset
+    num_selected_total = int(df_full_final['Selected'].sum())
     st.info(f"**{num_selected_total}** di **{total_products}** prodotti selezionati")
 
     if num_selected_total == 0:
         st.warning("⚠️ Nessun prodotto selezionato. Seleziona almeno un prodotto per continuare.")
         st.stop()
 
-    # Filter rows to only selected ones from the full updated dataset
-    selected_mask = df_full_updated['Selected'] == True
-    selected_df = df_full_updated[selected_mask].copy()
+    # Filter rows to only selected ones from the final dataset
+    selected_mask = df_full_final['Selected'] == True
+    selected_df = df_full_final[selected_mask].copy()
     selected_df = selected_df.drop(columns=['Selected'])  # Remove selection column
 
     # Remove _original_index if it exists
