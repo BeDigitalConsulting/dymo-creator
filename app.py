@@ -243,6 +243,10 @@ def main():
                                 if idx in st.session_state['selection_override']:
                                     del st.session_state['selection_override'][idx]
 
+                            # Clear data_editor's edited_rows to remove manual selections for this group
+                            if 'product_selector' in st.session_state:
+                                del st.session_state['product_selector']
+
         # Show "Mostra altri" or "Mostra meno" button
         if show_more_button:
             # There are more groups to show
@@ -315,9 +319,9 @@ def main():
                     st.session_state['selection_override'][orig_idx] = True
             else:
                 st.session_state['selection_override'] = {i: True for i in range(len(df))}
-            # Clear data_editor's edited_rows to avoid conflicts with bulk action
+            # Clear data_editor's edited_rows by deleting the widget state
             if 'product_selector' in st.session_state:
-                st.session_state['product_selector'] = {'edited_rows': {}, 'added_rows': [], 'deleted_rows': []}
+                del st.session_state['product_selector']
             st.rerun()
     with link_col3:
         if st.button("Deseleziona tutto", key="clear_all_btn", help="Deseleziona tutti i prodotti", use_container_width=True):
@@ -328,9 +332,9 @@ def main():
                     st.session_state['selection_override'][orig_idx] = False
             else:
                 st.session_state['selection_override'] = {i: False for i in range(len(df))}
-            # Clear data_editor's edited_rows to avoid conflicts with bulk action
+            # Clear data_editor's edited_rows by deleting the widget state
             if 'product_selector' in st.session_state:
-                st.session_state['product_selector'] = {'edited_rows': {}, 'added_rows': [], 'deleted_rows': []}
+                del st.session_state['product_selector']
             st.rerun()
 
     # Interactive data editor
