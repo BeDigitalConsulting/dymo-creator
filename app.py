@@ -371,9 +371,11 @@ def main():
     if '_original_index' in df.columns:
         column_config["_original_index"] = None
 
+    # Store input df for comparison (to detect NEW changes)
+    df_before_edit = df.copy()
+
     # Pass df with current selection state to data_editor
     # Visual checkboxes will match actual selections (group + manual overrides)
-    # New manual changes will be tracked via edited_rows
     edited_df = st.data_editor(
         df,
         use_container_width=True,
@@ -383,21 +385,22 @@ def main():
         key="product_selector"
     )
 
-    # Process manual selections from edited_rows
-    # edited_rows contains ALL manual checkbox clicks relative to the clean base state
+    # Detect NEW manual selections by comparing input to output
+    # This avoids state conflicts with edited_rows
     manual_selections = {}
-    if 'product_selector' in st.session_state and 'edited_rows' in st.session_state['product_selector']:
-        edited_rows_dict = st.session_state['product_selector']['edited_rows']
-
-        for row_idx, changes in edited_rows_dict.items():
-            if 'Selected' in changes:
+    for idx in range(len(df_before_edit)):
+        if idx < len(edited_df):
+            old_value = df_before_edit.iloc[idx]['Selected']
+            new_value = edited_df.iloc[idx]['Selected']
+            if old_value != new_value:
+                # User changed this row in THIS render
                 # Map display index to original index
                 if '_original_index' in df.columns:
-                    orig_idx = int(df.iloc[row_idx]['_original_index'])
+                    orig_idx = int(df.iloc[idx]['_original_index'])
                 else:
-                    orig_idx = row_idx
+                    orig_idx = idx
 
-                manual_selections[orig_idx] = changes['Selected']
+                manual_selections[orig_idx] = new_value
 
     # Build final selection state for full dataset
     # Priority: manual_selections > selection_override > group_selections
