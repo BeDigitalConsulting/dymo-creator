@@ -337,6 +337,22 @@ def main():
                 del st.session_state['product_selector']
             st.rerun()
 
+    # Apply manual overrides to display DataFrame so visual state matches actual selections
+    # This ensures checkboxes in data_editor reflect selections from bulk buttons and previous sessions
+    for idx, override_value in st.session_state.get('selection_override', {}).items():
+        # Map override index to current df index
+        if '_original_index' in df.columns:
+            # When filtered, find row with matching original index
+            matching_rows = df[df['_original_index'] == idx]
+            if len(matching_rows) > 0:
+                # Get the reset index (0-based position in filtered df)
+                display_idx = matching_rows.index[0]
+                df.at[display_idx, 'Selected'] = override_value
+        else:
+            # Not filtered, use index directly
+            if idx < len(df):
+                df.at[idx, 'Selected'] = override_value
+
     # Interactive data editor
     column_config = {
         "Selected": st.column_config.CheckboxColumn(
@@ -355,8 +371,9 @@ def main():
     if '_original_index' in df.columns:
         column_config["_original_index"] = None
 
-    # Pass clean df (group selections only) to data_editor
-    # Manual selections will be tracked via edited_rows
+    # Pass df with current selection state to data_editor
+    # Visual checkboxes will match actual selections (group + manual overrides)
+    # New manual changes will be tracked via edited_rows
     edited_df = st.data_editor(
         df,
         use_container_width=True,
