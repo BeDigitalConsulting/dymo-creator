@@ -46,10 +46,17 @@ out/
 # Data files - production data excluded
 data_test.xlsx
 teamplate_text.txt
+*.xlsx
+!data.xlsx
 
 # Sample/demo files are tracked
-# data.xlsx is kept in git as an example
+# data.xlsx is kept in git as an example (exception above)
 # template_update.dymo is TRACKED (needed for web app)
+
+# Node.js (not needed for Streamlit deployment)
+node_modules/
+package.json
+package-lock.json
 
 # OS
 Thumbs.db
