@@ -212,12 +212,22 @@ def main():
                     count = group_counts.get(group, 0)
                     with col:
                         is_selected = group in st.session_state['selected_groups']
-                        if st.checkbox(f"{group} ({count})", value=is_selected, key=f"group_{group}"):
-                            if group not in st.session_state['selected_groups']:
-                                st.session_state['selected_groups'].append(group)
-                        else:
-                            if group in st.session_state['selected_groups']:
-                                st.session_state['selected_groups'].remove(group)
+                        checkbox_value = st.checkbox(f"{group} ({count})", value=is_selected, key=f"group_{group}")
+
+                        if checkbox_value != is_selected:
+                            # Group selection changed - update selected_groups and clear overrides for this group
+                            if checkbox_value:
+                                if group not in st.session_state['selected_groups']:
+                                    st.session_state['selected_groups'].append(group)
+                            else:
+                                if group in st.session_state['selected_groups']:
+                                    st.session_state['selected_groups'].remove(group)
+
+                            # Clear selection_override for all rows in this group so group logic takes over
+                            group_indices = df[df['Group'] == group].index.tolist()
+                            for idx in group_indices:
+                                if idx in st.session_state['selection_override']:
+                                    del st.session_state['selection_override'][idx]
 
         selected_groups = st.session_state['selected_groups']
     else:
