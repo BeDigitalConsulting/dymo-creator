@@ -285,18 +285,20 @@ def main():
         if idx < len(df_full):
             df_full.at[idx, 'Selected'] = override_value
 
-    # Desc filter search box
+    # Product search box (searches both Code and Desc)
     desc_search = st.text_input(
         label="desc_search_label",
-        placeholder="Cerca nella descrizione...",
+        placeholder="Cerca prodotto (codice o descrizione)...",
         key="desc_search_input",
         label_visibility="collapsed"
     )
 
-    # Filter dataframe by Desc search
+    # Filter dataframe by Code or Desc search
     if desc_search:
+        code_mask = df['Code'].str.contains(desc_search, case=False, na=False)
         desc_mask = df['Desc'].str.contains(desc_search, case=False, na=False)
-        df = df[desc_mask].copy()
+        combined_mask = code_mask | desc_mask  # OR condition - match either column
+        df = df[combined_mask].copy()
         # Store original indices before resetting
         df['_original_index'] = df.index
         # Reset index to avoid KeyError when accessing rows by position
