@@ -30,6 +30,44 @@ from utils import (
 )
 
 
+def transform_for_template(rows):
+    """
+    Transform client's real column names to template placeholders.
+
+    Real columns (shown in UI):
+    - Articolo → Code
+    - Descrizione Articolo → Desc
+    - Variante (format: "01 3M") → Color="01", Size="3M"
+    - Barcode → Barcode (unchanged)
+
+    Args:
+        rows: List of dicts with real column names
+
+    Returns:
+        List of dicts with template placeholder names (Code, Desc, Color, Size, Barcode)
+    """
+    transformed = []
+    for row in rows:
+        new_row = row.copy()
+
+        # Map column names
+        new_row['Code'] = row.get('Articolo', '')
+        new_row['Desc'] = row.get('Descrizione Articolo', '')
+
+        # Split Variante into Color and Size (format: "01 3M" → Color="01", Size="3M")
+        variante = str(row.get('Variante', ''))
+        parts = variante.split(maxsplit=1)
+        new_row['Color'] = parts[0] if len(parts) > 0 else ''
+        new_row['Size'] = parts[1] if len(parts) > 1 else ''
+
+        # Barcode stays the same
+        new_row['Barcode'] = row.get('Barcode', '')
+
+        transformed.append(new_row)
+
+    return transformed
+
+
 # Configurazione pagina
 st.set_page_config(
     page_title="Generatore Etichette DYMO - Bamboom",
@@ -119,7 +157,7 @@ st.markdown("""
 
 # Template path (hardcoded come richiesto)
 TEMPLATE_PATH = Path("template_update.dymo")
-DEFAULT_FILENAME_PATTERN = "{Code}_{Color}_{Size}.dymo"
+DEFAULT_FILENAME_PATTERN = "{Articolo}_{Variante}.dymo"
 
 
 def main():
@@ -146,7 +184,7 @@ def main():
     uploaded_file = st.file_uploader(
         "Carica il tuo file Excel (.xlsx, .xls) o CSV",
         type=["xlsx", "xls", "csv"],
-        help="Il file deve contenere le colonne: Code, Desc, Color, Size, Group, Barcode"
+        help="Il file deve contenere le colonne: Articolo, Variante, Descrizione Articolo, Codice Gruppo, Barcode"
     )
 
     if uploaded_file is None:
@@ -186,7 +224,7 @@ def main():
         st.error(f"❌ Trovati {len(duplicate_barcodes)} prodotti con codici Barcode duplicati!")
         st.warning("⚠️ Ogni prodotto deve avere un codice Barcode univoco.")
         st.dataframe(
-            duplicate_barcodes[['Code', 'Barcode', 'Desc', 'Color', 'Size']].sort_values('Barcode'),
+            duplicate_barcodes[['Articolo', 'Barcode', 'Descrizione Articolo', 'Variante']].sort_values('Barcode'),
             width='stretch'
         )
         st.info("💡 Correggi i duplicati nel file EAN e ricarica.")
@@ -198,7 +236,7 @@ def main():
         st.error(f"❌ Trovati {len(empty_barcodes)} prodotti senza codice Barcode!")
         st.warning("⚠️ Tutti i prodotti devono avere un codice Barcode.")
         st.dataframe(
-            empty_barcodes[['Code', 'Desc', 'Color', 'Size']].head(20),
+            empty_barcodes[['Articolo', 'Descrizione Articolo', 'Variante']].head(20),
             width='stretch'
         )
         if len(empty_barcodes) > 20:
@@ -255,11 +293,11 @@ def main():
         del st.session_state['selection_override'][bc]
 
     # Group filter
-    all_groups = sorted(df['Group'].unique()) if 'Group' in df.columns else []
+    all_groups = sorted(df['Codice Gruppo'].unique()) if 'Codice Gruppo' in df.columns else []
 
     if all_groups:
         # Calculate product counts per group
-        group_counts = df['Group'].value_counts().to_dict()
+        group_counts = df['Codice Gruppo'].value_counts().to_dict()
 
         # Sort groups by product count (descending)
         sorted_groups = sorted(all_groups, key=lambda g: group_counts.get(g, 0), reverse=True)
@@ -310,7 +348,7 @@ def main():
 
                             # PHASE 3: Clear selection_override for ALL products in this group (use df_full, not df)
                             # Use Barcode-based tracking instead of index
-                            group_barcodes = df_full[df_full['Group'] == group]['Barcode'].dropna().tolist()
+                            group_barcodes = df_full[df_full['Codice Gruppo'] == group]['Barcode'].dropna().tolist()
                             for barcode in group_barcodes:
                                 if barcode in st.session_state['selection_override']:
                                     del st.session_state['selection_override'][barcode]
@@ -345,13 +383,13 @@ def main():
         selected_groups = st.session_state['selected_groups']
     else:
         selected_groups = []
-        st.warning("⚠️ Colonna 'Group' non trovata nel file")
+        st.warning("⚠️ Colonna 'Codice Gruppo' non trovata nel file")
 
     # Create base selection state from group selections only
     # This will be the "clean" base state for data_editor (no manual overrides)
     if selected_groups:
-        base_selection = df['Group'].isin(selected_groups)
-        base_selection_full = df_full['Group'].isin(selected_groups)
+        base_selection = df['Codice Gruppo'].isin(selected_groups)
+        base_selection_full = df_full['Codice Gruppo'].isin(selected_groups)
     else:
         base_selection = pd.Series([False] * len(df), index=df.index)
         base_selection_full = pd.Series([False] * len(df_full), index=df_full.index)
@@ -364,18 +402,18 @@ def main():
     if 'Selected' not in df_full.columns:
         df_full.insert(0, 'Selected', base_selection_full)
 
-    # Product search box (searches both Code and Desc)
+    # Product search box (searches both Articolo and Descrizione Articolo)
     desc_search = st.text_input(
         label="desc_search_label",
-        placeholder="Cerca prodotto (codice o descrizione)...",
+        placeholder="Cerca prodotto (articolo o descrizione)...",
         key="desc_search_input",
         label_visibility="collapsed"
     )
 
-    # Filter dataframe by Code or Desc search
+    # Filter dataframe by Articolo or Descrizione Articolo search
     if desc_search:
-        code_mask = df['Code'].str.contains(desc_search, case=False, na=False)
-        desc_mask = df['Desc'].str.contains(desc_search, case=False, na=False)
+        code_mask = df['Articolo'].str.contains(desc_search, case=False, na=False)
+        desc_mask = df['Descrizione Articolo'].str.contains(desc_search, case=False, na=False)
         combined_mask = code_mask | desc_mask  # OR condition - match either column
         df = df[combined_mask].copy()
         # Store original indices before resetting
@@ -430,8 +468,8 @@ def main():
             help="Seleziona i prodotti per cui generare etichette",
             default=False,
         ),
-        "Desc": st.column_config.TextColumn(
-            "Desc",
+        "Descrizione Articolo": st.column_config.TextColumn(
+            "Descrizione Articolo",
             help="Descrizione prodotto",
             width="medium",
         )
@@ -525,7 +563,7 @@ def main():
         # Find this product's group
         product_rows = df_full_final[df_full_final['Barcode'] == barcode]
         if len(product_rows) > 0:
-            group = product_rows.iloc[0]['Group']
+            group = product_rows.iloc[0]['Codice Gruppo']
             group_selected = group in st.session_state['selected_groups']
             # If override matches group baseline, it's redundant
             if override_value == group_selected:
@@ -573,17 +611,11 @@ def main():
 
     try:
         template_xml = read_template(TEMPLATE_PATH)
-        validation = validate_data(template_xml, selected_rows)
 
-        col1, col2 = st.columns(2)
+        # Transform real column names to template placeholders
+        selected_rows_transformed = transform_for_template(selected_rows)
 
-        with col1:
-            st.write("**Placeholder nel template:**")
-            st.code(", ".join(sorted(validation['placeholders'])))
-
-        with col2:
-            st.write("**Colonne nel file Excel:**")
-            st.code(", ".join(sorted(validation['columns'])))
+        validation = validate_data(template_xml, selected_rows_transformed)
 
         # Verifica validazione
         if not validation['is_valid']:
@@ -595,13 +627,6 @@ def main():
             st.stop()
         else:
             st.success("✅ Validazione completata! Tutti i placeholder hanno colonne corrispondenti.")
-
-        # Mostra colonne non usate (solo info)
-        if validation['unused']:
-            with st.expander("ℹ️ Colonne non utilizzate dal template"):
-                st.write("Queste colonne sono presenti nei dati ma non vengono usate:")
-                for unused in validation['unused']:
-                    st.write(f"- `{unused}`")
 
     except Exception as e:
         st.error(f"❌ Errore nella validazione: {str(e)}")
@@ -617,10 +642,10 @@ def main():
     if st.button(f"🏷️ Genera {num_labels} Etichette Selezionate", type="primary", width="stretch"):
         try:
             with st.spinner(f"Generazione di {num_labels} etichette in corso..."):
-                # Genera etichette
+                # Genera etichette (usa dati trasformati)
                 labels = generate_labels(
                     template_xml,
-                    selected_rows,
+                    selected_rows_transformed,
                     filename_pattern,
                     limit=None
                 )
