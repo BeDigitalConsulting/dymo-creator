@@ -228,7 +228,7 @@ def main():
         st.warning("⚠️ Ogni prodotto deve avere un codice Barcode univoco.")
         st.dataframe(
             duplicate_barcodes[['Code', 'Barcode', 'Desc', 'Color', 'Size']].sort_values('Barcode'),
-            use_container_width=True
+            width='stretch'
         )
         st.info("💡 Correggi i duplicati nel file EAN e ricarica.")
         st.stop()
@@ -240,7 +240,7 @@ def main():
         st.warning("⚠️ Tutti i prodotti devono avere un codice Barcode.")
         st.dataframe(
             empty_barcodes[['Code', 'Desc', 'Color', 'Size']].head(20),
-            use_container_width=True
+            width='stretch'
         )
         if len(empty_barcodes) > 20:
             st.caption(f"... e altri {len(empty_barcodes) - 20} prodotti")
@@ -379,18 +379,18 @@ def main():
             # There are more groups to show
             col1, col2, col3 = st.columns([1, 1, 3])
             with col1:
-                if st.button(f"Mostra altri ({remaining_groups})", key="show_more_groups", use_container_width=True):
+                if st.button(f"Mostra altri ({remaining_groups})", key="show_more_groups", width='stretch'):
                     st.session_state['groups_display_limit'] += 10
                     st.rerun()
             # Show collapse button if we've expanded beyond initial 5
             if st.session_state.get('groups_display_limit', 5) > 5:
                 with col2:
-                    if st.button("Mostra meno", key="show_less_groups", use_container_width=True):
+                    if st.button("Mostra meno", key="show_less_groups", width='stretch'):
                         st.session_state['groups_display_limit'] = 5
                         st.rerun()
         elif st.session_state.get('groups_display_limit', 5) > 5:
             # All groups shown but we're expanded - show only collapse button
-            if st.button("Mostra meno", key="show_less_groups_only", use_container_width=False):
+            if st.button("Mostra meno", key="show_less_groups_only", width='content'):
                 st.session_state['groups_display_limit'] = 5
                 st.rerun()
 
@@ -444,7 +444,7 @@ def main():
     deselect_text = "Deseleziona visibili" if is_filtered else "Deseleziona tutto"
 
     with link_col2:
-        if st.button(select_text, key="select_all_btn", help="Seleziona i prodotti mostrati", use_container_width=True):
+        if st.button(select_text, key="select_all_btn", help="Seleziona i prodotti mostrati", width='stretch'):
             # PHASE 1: Use Barcode-based tracking instead of index
             # Get Barcodes from currently displayed df (filtered or full)
             barcodes_to_select = df['Barcode'].dropna().tolist()
@@ -460,7 +460,7 @@ def main():
             st.rerun()
 
     with link_col3:
-        if st.button(deselect_text, key="clear_all_btn", help="Deseleziona i prodotti mostrati", use_container_width=True):
+        if st.button(deselect_text, key="clear_all_btn", help="Deseleziona i prodotti mostrati", width='stretch'):
             # PHASE 1: Use Barcode-based tracking instead of index
             # Get Barcodes from currently displayed df (filtered or full)
             barcodes_to_deselect = df['Barcode'].dropna().tolist()
@@ -515,7 +515,7 @@ def main():
         # Form prevents rerun until submit button is clicked
         edited_df = st.data_editor(
             df,
-            use_container_width=True,
+            width='stretch',
             hide_index=True,
             column_config=column_config,
             disabled=[col for col in df.columns if col not in ['Selected']],
@@ -523,7 +523,7 @@ def main():
         )
 
         # Submit button to apply changes
-        submitted = st.form_submit_button("✓ Applica Selezioni", use_container_width=True, type="primary")
+        submitted = st.form_submit_button("✓ Applica Selezioni", width='stretch', type="primary")
 
     # PHASE 2: Process changes when form is submitted
     # Use Barcode-based lookup instead of positional index to handle sorting/reordering
