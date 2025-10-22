@@ -2,11 +2,13 @@
 Streamlit Web App per generazione etichette DYMO.
 App dashboard per Bamboom - Carica Excel, Genera etichette, Scarica ZIP.
 
-SELECTION ARCHITECTURE (Code-based tracking):
-- selection_override: Dict[Code: bool] - Maps product Code to selection state
-- Uses stable product Code instead of Pandas row index
-- Survives file uploads, data reordering, UI sorting, row insertions/deletions
+SELECTION ARCHITECTURE (Barcode-based tracking):
+- selection_override: Dict[Barcode: bool] - Maps product Barcode to selection state
+- Uses stable unique Barcode instead of Pandas row index or non-unique Code
+- Survives file uploads, data reordering, row insertions/deletions
+- Handles duplicate Codes correctly (each Barcode tracked independently)
 - Redundant overrides (matching group baseline) are automatically pruned
+- Stale overrides (Barcodes no longer in dataset) are automatically purged
 - File upload change detection resets all selection state
 """
 
@@ -212,6 +214,12 @@ def main():
         st.error(f"❌ Errore imprevisto: {str(e)}")
         st.stop()
 
+    # PHASE 6: Validate that Barcode column exists (required for selection tracking)
+    if 'Barcode' not in df.columns:
+        st.error("❌ Il file unito deve contenere la colonna 'Barcode'")
+        st.info("Assicurati che il file EAN contenga la colonna 'Barcode'")
+        st.stop()
+
     # Mostra statistiche
     st.success(f"✅ File caricati e uniti con successo!")
 
@@ -236,32 +244,40 @@ def main():
     # Keep a full copy of df before filtering for counting all selections
     df_full = df.copy()
 
-    # PHASE 2: File upload change detection and state reset
-    # Track which files are currently loaded
-    current_files = (product_file.name, ean_file.name)
+    # PHASE 2 & 5: File upload change detection and state reset
+    # Track which files are currently loaded with fingerprint (name + row count)
+    current_fingerprint = (product_file.name, ean_file.name, len(df))
 
     if 'uploaded_files' not in st.session_state:
-        st.session_state['uploaded_files'] = current_files
+        st.session_state['uploaded_files'] = current_fingerprint
 
-    # If files changed, reset all selection state
-    if st.session_state['uploaded_files'] != current_files:
+    # If files changed (name or content), reset all selection state
+    if st.session_state['uploaded_files'] != current_fingerprint:
         st.session_state['selected_groups'] = []
-        st.session_state['selection_override'] = {}  # Now keyed by Code, not index
+        st.session_state['selection_override'] = {}  # Now keyed by Barcode
         st.session_state['selection_version'] = 0
         st.session_state['groups_display_limit'] = 5
-        st.session_state['uploaded_files'] = current_files
+        st.session_state['uploaded_files'] = current_fingerprint
 
     # Initialize session state for selections if not exists
     if 'selected_groups' not in st.session_state:
         st.session_state['selected_groups'] = []
     if 'selection_override' not in st.session_state:
-        st.session_state['selection_override'] = {}  # PHASE 1: Now keyed by Code (str), not index (int)
+        st.session_state['selection_override'] = {}  # PHASE 1: Now keyed by Barcode (str), not index (int)
     if 'desc_search' not in st.session_state:
         st.session_state['desc_search'] = ""
     if 'groups_display_limit' not in st.session_state:
         st.session_state['groups_display_limit'] = 5
     if 'selection_version' not in st.session_state:
         st.session_state['selection_version'] = 0
+
+    # PHASE 3: Purge stale overrides (Barcodes no longer in current dataset)
+    # This prevents old selections from being inherited by new products with recycled Barcodes
+    current_barcodes = set(df_full['Barcode'].dropna().unique())
+    stale_barcodes = [bc for bc in st.session_state['selection_override'].keys()
+                      if bc not in current_barcodes]
+    for bc in stale_barcodes:
+        del st.session_state['selection_override'][bc]
 
     # Group filter
     all_groups = sorted(df['Group'].unique()) if 'Group' in df.columns else []
@@ -318,11 +334,11 @@ def main():
                                     st.session_state['selected_groups'].remove(group)
 
                             # PHASE 3: Clear selection_override for ALL products in this group (use df_full, not df)
-                            # Use Code-based tracking instead of index
-                            group_codes = df_full[df_full['Group'] == group]['Code'].tolist()
-                            for code in group_codes:
-                                if code in st.session_state['selection_override']:
-                                    del st.session_state['selection_override'][code]
+                            # Use Barcode-based tracking instead of index
+                            group_barcodes = df_full[df_full['Group'] == group]['Barcode'].dropna().tolist()
+                            for barcode in group_barcodes:
+                                if barcode in st.session_state['selection_override']:
+                                    del st.session_state['selection_override'][barcode]
 
                             # Increment version to force widget recreation with clean state
                             st.session_state['selection_version'] += 1
@@ -402,11 +418,11 @@ def main():
 
     with link_col2:
         if st.button(select_text, key="select_all_btn", help="Seleziona i prodotti mostrati", use_container_width=True):
-            # PHASE 1: Use Code-based tracking instead of index
-            # Get codes from currently displayed df (filtered or full)
-            codes_to_select = df['Code'].tolist()
-            for code in codes_to_select:
-                st.session_state['selection_override'][code] = True
+            # PHASE 1: Use Barcode-based tracking instead of index
+            # Get Barcodes from currently displayed df (filtered or full)
+            barcodes_to_select = df['Barcode'].dropna().tolist()
+            for barcode in barcodes_to_select:
+                st.session_state['selection_override'][barcode] = True
 
             # Increment version to force widget recreation with clean state
             st.session_state['selection_version'] += 1
@@ -418,11 +434,11 @@ def main():
 
     with link_col3:
         if st.button(deselect_text, key="clear_all_btn", help="Deseleziona i prodotti mostrati", use_container_width=True):
-            # PHASE 1: Use Code-based tracking instead of index
-            # Get codes from currently displayed df (filtered or full)
-            codes_to_deselect = df['Code'].tolist()
-            for code in codes_to_deselect:
-                st.session_state['selection_override'][code] = False
+            # PHASE 1: Use Barcode-based tracking instead of index
+            # Get Barcodes from currently displayed df (filtered or full)
+            barcodes_to_deselect = df['Barcode'].dropna().tolist()
+            for barcode in barcodes_to_deselect:
+                st.session_state['selection_override'][barcode] = False
 
             # Increment version to force widget recreation with clean state
             st.session_state['selection_version'] += 1
@@ -451,10 +467,10 @@ def main():
         column_config["_original_index"] = None
 
     # PHASE 1: Apply manual overrides to df to show current state in form
-    # Now using Code-based tracking instead of index
-    for code, override_value in st.session_state.get('selection_override', {}).items():
-        # Find row(s) with this Code in the displayed df
-        matching_rows = df[df['Code'] == code]
+    # Now using Barcode-based tracking instead of index
+    for barcode, override_value in st.session_state.get('selection_override', {}).items():
+        # Find row(s) with this Barcode in the displayed df
+        matching_rows = df[df['Barcode'] == barcode]
         if len(matching_rows) > 0:
             # Get the index in the displayed df (may be reset index if filtered)
             display_idx = matching_rows.index[0]
@@ -465,6 +481,8 @@ def main():
 
     # Wrap data_editor in form to prevent rerun on every click
     # This solves both disappearing checkbox and scroll reset issues
+    # PHASE 4: Note - table sorting is not officially disabled but comparison uses Barcode
+    # so sorting won't break selections (comparisons are by identifier, not position)
     with st.form("product_selection_form", clear_on_submit=False):
         # Pass df with current selection state (group + manual overrides)
         # Form prevents rerun until submit button is clicked
@@ -480,59 +498,67 @@ def main():
         # Submit button to apply changes
         submitted = st.form_submit_button("✓ Applica Selezioni", use_container_width=True, type="primary")
 
-    # PHASE 1: Only process changes when form is submitted
-    # Use Code-based tracking instead of index to handle sorting/reordering
+    # PHASE 2: Process changes when form is submitted
+    # Use Barcode-based lookup instead of positional index to handle sorting/reordering
     manual_selections = {}
     if submitted:
-        for idx in range(len(df_before_edit)):
-            if idx < len(edited_df):
-                old_value = df_before_edit.iloc[idx]['Selected']
-                new_value = edited_df.iloc[idx]['Selected']
-                if old_value != new_value:
-                    # User changed this row - get the Code to identify it
-                    code = df_before_edit.iloc[idx]['Code']
-                    manual_selections[code] = new_value
+        # Build lookup dicts keyed by Barcode (not positional index)
+        before_dict = {}
+        for _, row in df_before_edit.iterrows():
+            if pd.notna(row.get('Barcode')):
+                before_dict[row['Barcode']] = row['Selected']
+
+        after_dict = {}
+        for _, row in edited_df.iterrows():
+            if pd.notna(row.get('Barcode')):
+                after_dict[row['Barcode']] = row['Selected']
+
+        # Compare by Barcode, not position - this handles table sorting correctly
+        for barcode in after_dict.keys():
+            if barcode in before_dict:
+                if before_dict[barcode] != after_dict[barcode]:
+                    manual_selections[barcode] = after_dict[barcode]
 
     # PHASE 1: Build final selection state for full dataset
     # Priority: manual_selections > selection_override > group_selections
-    # Now using Code-based tracking
+    # Now using Barcode-based tracking
     df_full_final = df_full.copy()
 
     # Start with group selections (already in df_full['Selected'])
     # Then apply stored overrides from previous sessions/filters
-    for code, override_value in st.session_state.get('selection_override', {}).items():
-        # Find row with this Code in df_full
-        matching_rows = df_full_final[df_full_final['Code'] == code]
+    for barcode, override_value in st.session_state.get('selection_override', {}).items():
+        # Find row with this Barcode in df_full
+        matching_rows = df_full_final[df_full_final['Barcode'] == barcode]
         if len(matching_rows) > 0:
             idx = matching_rows.index[0]
             df_full_final.at[idx, 'Selected'] = override_value
 
     # Finally apply current manual selections (highest priority)
-    for code, manual_value in manual_selections.items():
-        # Find row with this Code in df_full
-        matching_rows = df_full_final[df_full_final['Code'] == code]
+    for barcode, manual_value in manual_selections.items():
+        # Find row with this Barcode in df_full
+        matching_rows = df_full_final[df_full_final['Barcode'] == barcode]
         if len(matching_rows) > 0:
             idx = matching_rows.index[0]
             df_full_final.at[idx, 'Selected'] = manual_value
             # Also update selection_override to persist this choice
-            st.session_state['selection_override'][code] = manual_value
+            st.session_state['selection_override'][barcode] = manual_value
 
     # PHASE 5: Prune redundant overrides that match group baseline
     # This prevents the override dict from growing unbounded
-    codes_to_remove = []
-    for code, override_value in st.session_state.get('selection_override', {}).items():
+    barcodes_to_remove = []
+    for barcode, override_value in st.session_state.get('selection_override', {}).items():
         # Find this product's group
-        product_rows = df_full_final[df_full_final['Code'] == code]
+        product_rows = df_full_final[df_full_final['Barcode'] == barcode]
         if len(product_rows) > 0:
             group = product_rows.iloc[0]['Group']
             group_selected = group in st.session_state['selected_groups']
             # If override matches group baseline, it's redundant
             if override_value == group_selected:
-                codes_to_remove.append(code)
+                barcodes_to_remove.append(barcode)
 
     # Remove redundant overrides
-    for code in codes_to_remove:
-        del st.session_state['selection_override'][code]
+    for barcode in barcodes_to_remove:
+        del st.session_state['selection_override'][barcode]
 
     # If manual selections were made, reset widget state and rerun for clean state
     if manual_selections:
