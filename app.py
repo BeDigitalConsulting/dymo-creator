@@ -220,6 +220,33 @@ def main():
         st.info("Assicurati che il file EAN contenga la colonna 'Barcode'")
         st.stop()
 
+    # PHASE 6: Validate Barcode uniqueness (critical for selection tracking)
+    # Check for duplicate Barcodes
+    duplicate_barcodes = df[df['Barcode'].duplicated(keep=False) & df['Barcode'].notna()]
+    if len(duplicate_barcodes) > 0:
+        st.error(f"❌ Trovati {len(duplicate_barcodes)} prodotti con codici Barcode duplicati!")
+        st.warning("⚠️ Ogni prodotto deve avere un codice Barcode univoco.")
+        st.dataframe(
+            duplicate_barcodes[['Code', 'Barcode', 'Desc', 'Color', 'Size']].sort_values('Barcode'),
+            use_container_width=True
+        )
+        st.info("💡 Correggi i duplicati nel file EAN e ricarica.")
+        st.stop()
+
+    # Check for empty/missing Barcodes
+    empty_barcodes = df[df['Barcode'].isna() | (df['Barcode'] == "")]
+    if len(empty_barcodes) > 0:
+        st.error(f"❌ Trovati {len(empty_barcodes)} prodotti senza codice Barcode!")
+        st.warning("⚠️ Tutti i prodotti devono avere un codice Barcode.")
+        st.dataframe(
+            empty_barcodes[['Code', 'Desc', 'Color', 'Size']].head(20),
+            use_container_width=True
+        )
+        if len(empty_barcodes) > 20:
+            st.caption(f"... e altri {len(empty_barcodes) - 20} prodotti")
+        st.info("💡 Aggiungi i Barcode mancanti nel file EAN e ricarica.")
+        st.stop()
+
     # Mostra statistiche
     st.success(f"✅ File caricati e uniti con successo!")
 
