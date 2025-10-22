@@ -10,6 +10,7 @@ from utils import (
     read_template,
     extract_placeholders,
     read_excel_data,
+    merge_product_ean_data,
     validate_data,
     generate_labels
 )
@@ -18,7 +19,8 @@ from utils import (
 def main():
     ap = argparse.ArgumentParser(description="Genera file .dymo da template e Excel/CSV")
     ap.add_argument("--template", default="template.dymo", type=Path, help="Percorso del template .dymo")
-    ap.add_argument("--data", default="data.xlsx", type=Path, help="Percorso dati (.xlsx/.xls/.csv)")
+    ap.add_argument("--data", default="data.xlsx", type=Path, help="Percorso dati prodotti (.xlsx/.xls/.csv)")
+    ap.add_argument("--ean-data", type=Path, default=None, help="Percorso file mappatura EAN (opzionale)")
     ap.add_argument("--sheet", default=None, help="Nome foglio Excel (opzionale)")
     ap.add_argument("--sep", default=",", help="Separatore CSV (default ,)")
     ap.add_argument("--encoding", default="utf-8", help="Encoding CSV (default utf-8)")
@@ -36,12 +38,29 @@ def main():
         print(str(e), file=sys.stderr)
         sys.exit(1)
 
-    # Leggi dati
+    # Leggi dati prodotti
     try:
         df, rows = read_excel_data(args.data, args.sheet, args.sep, args.encoding)
     except (FileNotFoundError, ValueError) as e:
         print(str(e), file=sys.stderr)
         sys.exit(1)
+
+    # Se presente file EAN, uniscilo ai dati prodotti
+    if args.ean_data:
+        try:
+            ean_df, _ = read_excel_data(args.ean_data, args.sheet, args.sep, args.encoding)
+            df, merge_stats = merge_product_ean_data(df, ean_df)
+            rows = df.to_dict(orient="records")
+
+            print(f"Unione completata: {merge_stats['total']} prodotti totali, "
+                  f"{merge_stats['matched']} con EAN, {merge_stats['unmatched']} senza EAN")
+
+            if merge_stats['unmatched'] > 0:
+                print(f"ATTENZIONE: {merge_stats['unmatched']} prodotti senza codice EAN", file=sys.stderr)
+
+        except (FileNotFoundError, ValueError) as e:
+            print(f"Errore nel file EAN: {str(e)}", file=sys.stderr)
+            sys.exit(1)
 
     # Applica limite
     if args.limit:

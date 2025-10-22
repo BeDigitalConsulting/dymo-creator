@@ -97,6 +97,70 @@ def read_excel_data(
     return df, rows
 
 
+def merge_product_ean_data(
+    product_df: pd.DataFrame,
+    ean_df: pd.DataFrame,
+    join_key: str = "Code",
+    ean_column: str = "Barcode"
+) -> Tuple[pd.DataFrame, Dict[str, int]]:
+    """
+    Unisce i dati prodotto con i codici EAN tramite join su colonna chiave.
+
+    Args:
+        product_df: DataFrame con informazioni prodotto (deve contenere join_key)
+        ean_df: DataFrame con mappatura EAN (deve contenere join_key e ean_column)
+        join_key: Nome colonna per il join (default: "Code")
+        ean_column: Nome colonna EAN nel file mappatura (default: "Barcode")
+
+    Returns:
+        Tupla (merged_df, statistics) dove:
+        - merged_df: DataFrame unito con colonna Barcode aggiunta
+        - statistics: Dict con conteggi {'total': int, 'matched': int, 'unmatched': int}
+
+    Raises:
+        ValueError: Se manca la colonna join_key in uno dei DataFrame
+    """
+    # Valida che entrambi i DataFrame abbiano la colonna chiave
+    if join_key not in product_df.columns:
+        raise ValueError(f"Colonna '{join_key}' non trovata nel file prodotti")
+    if join_key not in ean_df.columns:
+        raise ValueError(f"Colonna '{join_key}' non trovata nel file EAN")
+    if ean_column not in ean_df.columns:
+        raise ValueError(f"Colonna '{ean_column}' non trovata nel file EAN")
+
+    # Prepara DataFrame EAN: seleziona solo le colonne necessarie
+    ean_mapping = ean_df[[join_key, ean_column]].copy()
+
+    # Rimuovi duplicati nel file EAN (prendi il primo se ci sono duplicati)
+    ean_mapping = ean_mapping.drop_duplicates(subset=[join_key], keep='first')
+
+    # Left join: mantieni tutti i prodotti, aggiungi EAN dove disponibile
+    merged_df = product_df.merge(ean_mapping, on=join_key, how='left')
+
+    # Se Barcode già esisteva in product_df, usa i valori del merge
+    # Il suffisso _y viene da pandas quando ci sono colonne duplicate
+    if f"{ean_column}_y" in merged_df.columns:
+        # Prendi il valore dal file EAN se disponibile, altrimenti quello originale
+        merged_df[ean_column] = merged_df[f"{ean_column}_y"].fillna(merged_df[f"{ean_column}_x"])
+        merged_df = merged_df.drop(columns=[f"{ean_column}_x", f"{ean_column}_y"])
+
+    # Riempi valori mancanti con stringa vuota
+    merged_df[ean_column] = merged_df[ean_column].fillna("")
+
+    # Calcola statistiche
+    total_products = len(merged_df)
+    matched_products = int((merged_df[ean_column] != "").sum())
+    unmatched_products = total_products - matched_products
+
+    statistics = {
+        'total': total_products,
+        'matched': matched_products,
+        'unmatched': unmatched_products
+    }
+
+    return merged_df, statistics
+
+
 def validate_data(template_xml: str, data_rows: List[Dict[str, str]]) -> Dict[str, any]:
     """
     Valida che i dati Excel contengano tutte le colonne richieste dal template.

@@ -11,6 +11,7 @@ import pandas as pd
 from utils import (
     read_template,
     read_excel_data,
+    merge_product_ean_data,
     validate_data,
     generate_labels,
     create_zip_archive
@@ -129,39 +130,94 @@ def main():
         st.stop()
 
     # Sezione 1: Upload file
-    st.header("📤 1. Carica File Excel")
-    uploaded_file = st.file_uploader(
-        "Carica il tuo file Excel (.xlsx, .xls) o CSV",
+    st.header("📤 1. Carica File Dati")
+
+    st.markdown("**File 1: Informazioni Prodotti**")
+    product_file = st.file_uploader(
+        "Carica il file con le informazioni prodotto (Code, Desc, Color, Size, Group, ecc.)",
         type=["xlsx", "xls", "csv"],
-        help="Il file deve contenere le colonne: Code, Desc, Color, Size, Barcode"
+        help="Il file deve contenere le colonne: Code, Desc, Color, Size, Group",
+        key="product_file_upload"
     )
 
-    if uploaded_file is None:
-        st.info("👆 Carica un file Excel o CSV per iniziare")
+    st.markdown("**File 2: Mappatura Codici EAN**")
+    ean_file = st.file_uploader(
+        "Carica il file con la mappatura EAN (Code, Barcode)",
+        type=["xlsx", "xls", "csv"],
+        help="Il file deve contenere le colonne: Code, Barcode",
+        key="ean_file_upload"
+    )
+
+    # Verifica che entrambi i file siano stati caricati
+    if product_file is None or ean_file is None:
+        if product_file is None and ean_file is None:
+            st.info("👆 Carica entrambi i file per iniziare")
+        elif product_file is None:
+            st.warning("⚠️ Carica il file prodotti per continuare")
+        else:
+            st.warning("⚠️ Carica il file EAN per continuare")
         st.stop()
 
-    # Leggi i dati
+    # Leggi il file prodotti
     try:
         # Converti uploaded_file in BytesIO
-        file_bytes = io.BytesIO(uploaded_file.read())
+        product_bytes = io.BytesIO(product_file.read())
+        product_extension = Path(product_file.name).suffix.lower()
 
-        # Determina il tipo di file dall'estensione
-        file_extension = Path(uploaded_file.name).suffix.lower()
-
-        if file_extension in [".xlsx", ".xls"]:
-            df, rows = read_excel_data(file_bytes, sheet=None)
-        elif file_extension == ".csv":
-            df, rows = read_excel_data(file_bytes, sep=",", encoding="utf-8")
+        if product_extension in [".xlsx", ".xls"]:
+            product_df, _ = read_excel_data(product_bytes, sheet=None)
+        elif product_extension == ".csv":
+            product_df, _ = read_excel_data(product_bytes, sep=",", encoding="utf-8")
         else:
-            st.error("❌ Formato file non supportato")
+            st.error("❌ Formato file prodotti non supportato")
             st.stop()
 
     except Exception as e:
-        st.error(f"❌ Errore nella lettura del file: {str(e)}")
+        st.error(f"❌ Errore nella lettura del file prodotti: {str(e)}")
+        st.stop()
+
+    # Leggi il file EAN
+    try:
+        ean_bytes = io.BytesIO(ean_file.read())
+        ean_extension = Path(ean_file.name).suffix.lower()
+
+        if ean_extension in [".xlsx", ".xls"]:
+            ean_df, _ = read_excel_data(ean_bytes, sheet=None)
+        elif ean_extension == ".csv":
+            ean_df, _ = read_excel_data(ean_bytes, sep=",", encoding="utf-8")
+        else:
+            st.error("❌ Formato file EAN non supportato")
+            st.stop()
+
+    except Exception as e:
+        st.error(f"❌ Errore nella lettura del file EAN: {str(e)}")
+        st.stop()
+
+    # Unisci i due file
+    try:
+        df, merge_stats = merge_product_ean_data(product_df, ean_df)
+        rows = df.to_dict(orient="records")
+
+    except ValueError as e:
+        st.error(f"❌ Errore nell'unione dei file: {str(e)}")
+        st.stop()
+    except Exception as e:
+        st.error(f"❌ Errore imprevisto: {str(e)}")
         st.stop()
 
     # Mostra statistiche
-    st.success(f"✅ File caricato con successo: **{uploaded_file.name}**")
+    st.success(f"✅ File caricati e uniti con successo!")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Prodotti totali", merge_stats['total'])
+    with col2:
+        st.metric("Con EAN", merge_stats['matched'], delta=None)
+    with col3:
+        st.metric("Senza EAN", merge_stats['unmatched'], delta=None)
+
+    if merge_stats['unmatched'] > 0:
+        st.warning(f"⚠️ {merge_stats['unmatched']} prodotti non hanno un codice EAN (il campo Barcode sarà vuoto)")
 
     # Sezione 2: Selezione Prodotti
     st.header("📋 2. Seleziona Prodotti")
@@ -432,6 +488,15 @@ def main():
             df_full_final.at[idx, 'Selected'] = manual_value
             # Also update selection_override to persist this choice
             st.session_state['selection_override'][idx] = manual_value
+
+    # If manual selections were made, reset widget state and rerun for clean state
+    if manual_selections:
+        # Increment version to force widget recreation with clean state
+        st.session_state['selection_version'] += 1
+        # Clear data_editor's edited_rows by deleting the widget state
+        if f"product_selector_{st.session_state['selection_version'] - 1}" in st.session_state:
+            del st.session_state[f"product_selector_{st.session_state['selection_version'] - 1}"]
+        st.rerun()
 
     # Selection summary - count from full dataset
     num_selected_total = int(df_full_final['Selected'].sum())
