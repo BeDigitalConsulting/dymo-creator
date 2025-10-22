@@ -1,6 +1,13 @@
 """
 Streamlit Web App per generazione etichette DYMO.
 App dashboard per Bamboom - Carica Excel, Genera etichette, Scarica ZIP.
+
+SELECTION ARCHITECTURE (Code-based tracking):
+- selection_override: Dict[Code: bool] - Maps product Code to selection state
+- Uses stable product Code instead of Pandas row index
+- Survives file uploads, data reordering, UI sorting, row insertions/deletions
+- Redundant overrides (matching group baseline) are automatically pruned
+- File upload change detection resets all selection state
 """
 
 import io
@@ -229,11 +236,26 @@ def main():
     # Keep a full copy of df before filtering for counting all selections
     df_full = df.copy()
 
+    # PHASE 2: File upload change detection and state reset
+    # Track which files are currently loaded
+    current_files = (product_file.name, ean_file.name)
+
+    if 'uploaded_files' not in st.session_state:
+        st.session_state['uploaded_files'] = current_files
+
+    # If files changed, reset all selection state
+    if st.session_state['uploaded_files'] != current_files:
+        st.session_state['selected_groups'] = []
+        st.session_state['selection_override'] = {}  # Now keyed by Code, not index
+        st.session_state['selection_version'] = 0
+        st.session_state['groups_display_limit'] = 5
+        st.session_state['uploaded_files'] = current_files
+
     # Initialize session state for selections if not exists
     if 'selected_groups' not in st.session_state:
         st.session_state['selected_groups'] = []
     if 'selection_override' not in st.session_state:
-        st.session_state['selection_override'] = {}
+        st.session_state['selection_override'] = {}  # PHASE 1: Now keyed by Code (str), not index (int)
     if 'desc_search' not in st.session_state:
         st.session_state['desc_search'] = ""
     if 'groups_display_limit' not in st.session_state:
@@ -295,17 +317,19 @@ def main():
                                 if group in st.session_state['selected_groups']:
                                     st.session_state['selected_groups'].remove(group)
 
-                            # Clear selection_override for all rows in this group so group logic takes over
-                            group_indices = df[df['Group'] == group].index.tolist()
-                            for idx in group_indices:
-                                if idx in st.session_state['selection_override']:
-                                    del st.session_state['selection_override'][idx]
+                            # PHASE 3: Clear selection_override for ALL products in this group (use df_full, not df)
+                            # Use Code-based tracking instead of index
+                            group_codes = df_full[df_full['Group'] == group]['Code'].tolist()
+                            for code in group_codes:
+                                if code in st.session_state['selection_override']:
+                                    del st.session_state['selection_override'][code]
 
                             # Increment version to force widget recreation with clean state
                             st.session_state['selection_version'] += 1
-                            # Clear data_editor's edited_rows to remove manual selections for this group
-                            if 'product_selector' in st.session_state:
-                                del st.session_state['product_selector']
+                            # PHASE 7: Clear data_editor's edited_rows with correct versioned key
+                            widget_key = f'product_selector_{st.session_state["selection_version"] - 1}'
+                            if widget_key in st.session_state:
+                                del st.session_state[widget_key]
 
         # Show "Mostra altri" or "Mostra meno" button
         if show_more_button:
@@ -368,37 +392,44 @@ def main():
         # Reset index to avoid KeyError when accessing rows by position
         df.reset_index(drop=True, inplace=True)
 
-    # Bulk action buttons
+    # PHASE 4: Bulk action buttons with explicit scope
+    # Make button text explicit about whether it affects filtered or all products
     link_col1, link_col2, link_col3 = st.columns([2.5, 1.0, 1.0])
+
+    is_filtered = desc_search != ""
+    select_text = "Seleziona visibili" if is_filtered else "Seleziona tutto"
+    deselect_text = "Deseleziona visibili" if is_filtered else "Deseleziona tutto"
+
     with link_col2:
-        if st.button("Seleziona tutto", key="select_all_btn", help="Seleziona tutti i prodotti", use_container_width=True):
-            # Use original indices if available (when filtered), otherwise use current indices
-            if '_original_index' in df.columns:
-                for i in range(len(df)):
-                    orig_idx = df.iloc[i]['_original_index']
-                    st.session_state['selection_override'][orig_idx] = True
-            else:
-                st.session_state['selection_override'] = {i: True for i in range(len(df))}
+        if st.button(select_text, key="select_all_btn", help="Seleziona i prodotti mostrati", use_container_width=True):
+            # PHASE 1: Use Code-based tracking instead of index
+            # Get codes from currently displayed df (filtered or full)
+            codes_to_select = df['Code'].tolist()
+            for code in codes_to_select:
+                st.session_state['selection_override'][code] = True
+
             # Increment version to force widget recreation with clean state
             st.session_state['selection_version'] += 1
-            # Clear data_editor's edited_rows by deleting the widget state
-            if 'product_selector' in st.session_state:
-                del st.session_state['product_selector']
+            # PHASE 7: Clear data_editor's edited_rows with correct versioned key
+            widget_key = f'product_selector_{st.session_state["selection_version"] - 1}'
+            if widget_key in st.session_state:
+                del st.session_state[widget_key]
             st.rerun()
+
     with link_col3:
-        if st.button("Deseleziona tutto", key="clear_all_btn", help="Deseleziona tutti i prodotti", use_container_width=True):
-            # Use original indices if available (when filtered), otherwise use current indices
-            if '_original_index' in df.columns:
-                for i in range(len(df)):
-                    orig_idx = df.iloc[i]['_original_index']
-                    st.session_state['selection_override'][orig_idx] = False
-            else:
-                st.session_state['selection_override'] = {i: False for i in range(len(df))}
+        if st.button(deselect_text, key="clear_all_btn", help="Deseleziona i prodotti mostrati", use_container_width=True):
+            # PHASE 1: Use Code-based tracking instead of index
+            # Get codes from currently displayed df (filtered or full)
+            codes_to_deselect = df['Code'].tolist()
+            for code in codes_to_deselect:
+                st.session_state['selection_override'][code] = False
+
             # Increment version to force widget recreation with clean state
             st.session_state['selection_version'] += 1
-            # Clear data_editor's edited_rows by deleting the widget state
-            if 'product_selector' in st.session_state:
-                del st.session_state['product_selector']
+            # PHASE 7: Clear data_editor's edited_rows with correct versioned key
+            widget_key = f'product_selector_{st.session_state["selection_version"] - 1}'
+            if widget_key in st.session_state:
+                del st.session_state[widget_key]
             st.rerun()
 
     # Interactive data editor wrapped in form to prevent rerun on every click
@@ -419,21 +450,15 @@ def main():
     if '_original_index' in df.columns:
         column_config["_original_index"] = None
 
-    # Apply manual overrides to df to show current state in form
-    # This is safe because form prevents automatic reruns
-    for idx, override_value in st.session_state.get('selection_override', {}).items():
-        # Map override index to current df index
-        if '_original_index' in df.columns:
-            # When filtered, find row with matching original index
-            matching_rows = df[df['_original_index'] == idx]
-            if len(matching_rows) > 0:
-                # Get the reset index (0-based position in filtered df)
-                display_idx = matching_rows.index[0]
-                df.at[display_idx, 'Selected'] = override_value
-        else:
-            # Not filtered, use index directly
-            if idx < len(df):
-                df.at[idx, 'Selected'] = override_value
+    # PHASE 1: Apply manual overrides to df to show current state in form
+    # Now using Code-based tracking instead of index
+    for code, override_value in st.session_state.get('selection_override', {}).items():
+        # Find row(s) with this Code in the displayed df
+        matching_rows = df[df['Code'] == code]
+        if len(matching_rows) > 0:
+            # Get the index in the displayed df (may be reset index if filtered)
+            display_idx = matching_rows.index[0]
+            df.at[display_idx, 'Selected'] = override_value
 
     # Store input df for comparison (to detect NEW changes)
     df_before_edit = df.copy()
@@ -455,7 +480,8 @@ def main():
         # Submit button to apply changes
         submitted = st.form_submit_button("✓ Applica Selezioni", use_container_width=True, type="primary")
 
-    # Only process changes when form is submitted
+    # PHASE 1: Only process changes when form is submitted
+    # Use Code-based tracking instead of index to handle sorting/reordering
     manual_selections = {}
     if submitted:
         for idx in range(len(df_before_edit)):
@@ -463,39 +489,59 @@ def main():
                 old_value = df_before_edit.iloc[idx]['Selected']
                 new_value = edited_df.iloc[idx]['Selected']
                 if old_value != new_value:
-                    # User changed this row
-                    # Map display index to original index
-                    if '_original_index' in df.columns:
-                        orig_idx = int(df.iloc[idx]['_original_index'])
-                    else:
-                        orig_idx = idx
+                    # User changed this row - get the Code to identify it
+                    code = df_before_edit.iloc[idx]['Code']
+                    manual_selections[code] = new_value
 
-                    manual_selections[orig_idx] = new_value
-
-    # Build final selection state for full dataset
+    # PHASE 1: Build final selection state for full dataset
     # Priority: manual_selections > selection_override > group_selections
+    # Now using Code-based tracking
     df_full_final = df_full.copy()
 
     # Start with group selections (already in df_full['Selected'])
     # Then apply stored overrides from previous sessions/filters
-    for idx, override_value in st.session_state.get('selection_override', {}).items():
-        if idx < len(df_full_final):
+    for code, override_value in st.session_state.get('selection_override', {}).items():
+        # Find row with this Code in df_full
+        matching_rows = df_full_final[df_full_final['Code'] == code]
+        if len(matching_rows) > 0:
+            idx = matching_rows.index[0]
             df_full_final.at[idx, 'Selected'] = override_value
 
     # Finally apply current manual selections (highest priority)
-    for idx, manual_value in manual_selections.items():
-        if idx < len(df_full_final):
+    for code, manual_value in manual_selections.items():
+        # Find row with this Code in df_full
+        matching_rows = df_full_final[df_full_final['Code'] == code]
+        if len(matching_rows) > 0:
+            idx = matching_rows.index[0]
             df_full_final.at[idx, 'Selected'] = manual_value
             # Also update selection_override to persist this choice
-            st.session_state['selection_override'][idx] = manual_value
+            st.session_state['selection_override'][code] = manual_value
+
+    # PHASE 5: Prune redundant overrides that match group baseline
+    # This prevents the override dict from growing unbounded
+    codes_to_remove = []
+    for code, override_value in st.session_state.get('selection_override', {}).items():
+        # Find this product's group
+        product_rows = df_full_final[df_full_final['Code'] == code]
+        if len(product_rows) > 0:
+            group = product_rows.iloc[0]['Group']
+            group_selected = group in st.session_state['selected_groups']
+            # If override matches group baseline, it's redundant
+            if override_value == group_selected:
+                codes_to_remove.append(code)
+
+    # Remove redundant overrides
+    for code in codes_to_remove:
+        del st.session_state['selection_override'][code]
 
     # If manual selections were made, reset widget state and rerun for clean state
     if manual_selections:
         # Increment version to force widget recreation with clean state
         st.session_state['selection_version'] += 1
-        # Clear data_editor's edited_rows by deleting the widget state
-        if f"product_selector_{st.session_state['selection_version'] - 1}" in st.session_state:
-            del st.session_state[f"product_selector_{st.session_state['selection_version'] - 1}"]
+        # PHASE 7: Clear data_editor's edited_rows with correct versioned key
+        widget_key = f"product_selector_{st.session_state['selection_version'] - 1}"
+        if widget_key in st.session_state:
+            del st.session_state[widget_key]
         st.rerun()
 
     # Selection summary - count from full dataset
