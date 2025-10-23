@@ -167,7 +167,7 @@ def main():
         try:
             st.image("logo.png", width=300)
         except:
-            st.title("🏷️ BAMBOOM")
+            st.title("BAMBOOM")
 
     st.markdown("<h2 style='text-align: center;'>Generatore Etichette DYMO</h2>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #8E8E8E;'>Carica il tuo file Excel e genera le etichette DYMO</p>", unsafe_allow_html=True)
@@ -175,12 +175,12 @@ def main():
 
     # Verifica che il template esista
     if not TEMPLATE_PATH.exists():
-        st.error(f"❌ Template non trovato: {TEMPLATE_PATH}")
+        st.error(f"Template non trovato: {TEMPLATE_PATH}")
         st.info("Assicurati che il file `template_bamboom.dymo` sia presente nella cartella del progetto.")
         st.stop()
 
     # Sezione 1: Upload file
-    st.header("📤 1. Carica File Excel")
+    st.header("1. Carica File Excel")
     uploaded_file = st.file_uploader(
         "Carica il tuo file Excel (.xlsx, .xls) o CSV",
         type=["xlsx", "xls", "csv"],
@@ -188,7 +188,7 @@ def main():
     )
 
     if uploaded_file is None:
-        st.info("👆 Carica un file Excel o CSV per iniziare")
+        st.info("Carica un file Excel o CSV per iniziare")
         st.stop()
 
     # Leggi i dati
@@ -204,16 +204,16 @@ def main():
         elif file_extension == ".csv":
             df, rows = read_excel_data(file_bytes, sep=",", encoding="utf-8")
         else:
-            st.error("❌ Formato file non supportato")
+            st.error("Formato file non supportato")
             st.stop()
 
     except Exception as e:
-        st.error(f"❌ Errore nella lettura del file: {str(e)}")
+        st.error(f"Errore nella lettura del file: {str(e)}")
         st.stop()
 
     # PHASE 6: Validate that Barcode column exists (required for selection tracking)
     if 'Barcode' not in df.columns:
-        st.error("❌ Il file unito deve contenere la colonna 'Barcode'")
+        st.error("Il file unito deve contenere la colonna 'Barcode'")
         st.info("Assicurati che il file EAN contenga la colonna 'Barcode'")
         st.stop()
 
@@ -221,35 +221,35 @@ def main():
     # Check for duplicate Barcodes
     duplicate_barcodes = df[df['Barcode'].duplicated(keep=False) & df['Barcode'].notna()]
     if len(duplicate_barcodes) > 0:
-        st.error(f"❌ Trovati {len(duplicate_barcodes)} prodotti con codici Barcode duplicati!")
-        st.warning("⚠️ Ogni prodotto deve avere un codice Barcode univoco.")
+        st.error(f"Trovati {len(duplicate_barcodes)} prodotti con codici Barcode duplicati!")
+        st.warning("Ogni prodotto deve avere un codice Barcode univoco.")
         st.dataframe(
             duplicate_barcodes[['Articolo', 'Barcode', 'Descrizione Articolo', 'Variante']].sort_values('Barcode'),
             width='stretch'
         )
-        st.info("💡 Correggi i duplicati nel file EAN e ricarica.")
+        st.info("Correggi i duplicati nel file EAN e ricarica.")
         st.stop()
 
     # Check for empty/missing Barcodes
     empty_barcodes = df[df['Barcode'].isna() | (df['Barcode'] == "")]
     if len(empty_barcodes) > 0:
-        st.error(f"❌ Trovati {len(empty_barcodes)} prodotti senza codice Barcode!")
-        st.warning("⚠️ Tutti i prodotti devono avere un codice Barcode.")
+        st.error(f"Trovati {len(empty_barcodes)} prodotti senza codice Barcode!")
+        st.warning("Tutti i prodotti devono avere un codice Barcode.")
         st.dataframe(
             empty_barcodes[['Articolo', 'Descrizione Articolo', 'Variante']].head(20),
             width='stretch'
         )
         if len(empty_barcodes) > 20:
             st.caption(f"... e altri {len(empty_barcodes) - 20} prodotti")
-        st.info("💡 Aggiungi i Barcode mancanti nel file EAN e ricarica.")
+        st.info("Aggiungi i Barcode mancanti nel file EAN e ricarica.")
         st.stop()
 
     # Mostra statistiche
-    st.success(f"✅ File caricato con successo: **{uploaded_file.name}**")
+    st.success(f"File caricato con successo: **{uploaded_file.name}**")
 
     # Sezione 2: Selezione Prodotti
-    st.header("📋 2. Seleziona Prodotti")
-    st.caption(f"📊 {len(rows)} prodotti totali nel file")
+    st.header("2. Seleziona Prodotti")
+    st.caption(f"{len(rows)} prodotti totali nel file")
 
     # Store total count for selection summary
     total_products = len(rows)
@@ -383,7 +383,7 @@ def main():
         selected_groups = st.session_state['selected_groups']
     else:
         selected_groups = []
-        st.warning("⚠️ Colonna 'Codice Gruppo' non trovata nel file")
+        st.warning("Colonna 'Codice Gruppo' non trovata nel file")
 
     # Create base selection state from group selections only
     # This will be the "clean" base state for data_editor (no manual overrides)
@@ -509,7 +509,7 @@ def main():
         )
 
         # Submit button to apply changes
-        submitted = st.form_submit_button("✓ Applica Selezioni", width='stretch', type="primary")
+        submitted = st.form_submit_button("Applica Selezioni", width='stretch', type="primary")
 
     # PHASE 2: Process changes when form is submitted
     # Use Barcode-based lookup instead of positional index to handle sorting/reordering
@@ -588,7 +588,7 @@ def main():
     st.info(f"**{num_selected_total}** di **{total_products}** prodotti selezionati")
 
     if num_selected_total == 0:
-        st.warning("⚠️ Nessun prodotto selezionato. Seleziona almeno un prodotto per continuare.")
+        st.warning("Nessun prodotto selezionato. Seleziona almeno un prodotto per continuare.")
         st.stop()
 
     # Filter rows to only selected ones from the final dataset
@@ -607,7 +607,7 @@ def main():
     limit_labels = 0
 
     # Sezione 3: Validazione
-    st.header("✓ 3. Validazione")
+    st.header("3. Validazione")
 
     try:
         template_xml = read_template(TEMPLATE_PATH)
@@ -619,27 +619,27 @@ def main():
 
         # Verifica validazione
         if not validation['is_valid']:
-            st.error("❌ Validazione fallita!")
+            st.error("Validazione fallita!")
             st.write("**Placeholder mancanti nei dati:**")
             for missing in validation['missing']:
                 st.write(f"- `{missing}`")
             st.warning("Il file Excel deve contenere tutte le colonne richieste dal template.")
             st.stop()
         else:
-            st.success("✅ Validazione completata! Tutti i placeholder hanno colonne corrispondenti.")
+            st.success("Validazione completata! Tutti i placeholder hanno colonne corrispondenti.")
 
     except Exception as e:
-        st.error(f"❌ Errore nella validazione: {str(e)}")
+        st.error(f"Errore nella validazione: {str(e)}")
         st.stop()
 
     # Sezione 4: Generazione
-    st.header("🚀 4. Genera Etichette")
+    st.header("4. Genera Etichette")
 
     # Genera solo le etichette selezionate
     num_labels = len(selected_rows)
 
     # Bottone genera
-    if st.button(f"🏷️ Genera {num_labels} Etichette Selezionate", type="primary", width="stretch"):
+    if st.button(f"Genera {num_labels} Etichette Selezionate", type="primary", width="stretch"):
         try:
             with st.spinner(f"Generazione di {num_labels} etichette in corso..."):
                 # Genera etichette (usa dati trasformati)
@@ -658,15 +658,15 @@ def main():
                 st.session_state['num_labels'] = len(labels)
                 st.session_state['generated'] = True
 
-            st.success(f"✅ {len(labels)} etichette generate con successo!")
+            st.success(f"{len(labels)} etichette generate con successo!")
 
         except Exception as e:
-            st.error(f"❌ Errore durante la generazione: {str(e)}")
+            st.error(f"Errore durante la generazione: {str(e)}")
             st.exception(e)
 
     # Sezione 5: Download
     if st.session_state.get('generated', False):
-        st.header("⬇️ 5. Download")
+        st.header("5. Download")
 
         zip_data = st.session_state['zip_file']
         num_labels = st.session_state['num_labels']
@@ -675,7 +675,7 @@ def main():
         zip_filename = f"etichette_dymo_{num_labels}_labels.zip"
 
         st.download_button(
-            label=f"📦 Scarica {num_labels} Etichette (ZIP)",
+            label=f"Scarica {num_labels} Etichette (ZIP)",
             data=zip_data,
             file_name=zip_filename,
             mime="application/zip",
@@ -683,10 +683,10 @@ def main():
             width="stretch"
         )
 
-        st.success(f"✅ {num_labels} file .dymo pronti per il download!")
+        st.success(f"{num_labels} file .dymo pronti per il download!")
 
         # Info aggiuntiva
-        with st.expander("ℹ️ Come usare le etichette"):
+        with st.expander("Come usare le etichette"):
             st.markdown("""
             1. Scarica il file ZIP
             2. Estrai tutti i file .dymo
