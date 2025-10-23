@@ -157,7 +157,7 @@ st.markdown("""
 
 # Template path (hardcoded come richiesto)
 TEMPLATE_PATH = Path("template_bamboom.dymo")
-DEFAULT_FILENAME_PATTERN = "{Articolo}_{Variante}.dymo"
+DEFAULT_FILENAME_PATTERN = "{Code}_{Color}_{Size}.dymo"
 
 
 def main():
