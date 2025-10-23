@@ -84,7 +84,7 @@
           </FontInfo>
           <ObjectLayout>
             <DYMOPoint>
-              <X>0.05499985</X>
+              <X>0.07475955</X>
               <Y>0.06</Y>
             </DYMOPoint>
             <Size>
@@ -170,7 +170,7 @@
           </FormattedText>
           <ObjectLayout>
             <DYMOPoint>
-              <X>0.05499985</X>
+              <X>0.009999</X>
               <Y>0.7986123</Y>
             </DYMOPoint>
             <Size>
