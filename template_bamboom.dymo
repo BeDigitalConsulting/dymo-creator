@@ -150,6 +150,58 @@
                 </FontInfo>
               </TextSpan>
             </LineTextSpan>
+          </FormattedText>
+          <ObjectLayout>
+            <DYMOPoint>
+              <X>0.049998727</X>
+              <Y>0.7986123</Y>
+            </DYMOPoint>
+            <Size>
+              <Width>2.150002</Width>
+              <Height>0.185</Height>
+            </Size>
+          </ObjectLayout>
+        </TextObject>
+        <TextObject>
+          <Name>TextObject1</Name>
+          <Brushes>
+            <BackgroundBrush>
+              <SolidColorBrush>
+                <Color A="0" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </BackgroundBrush>
+            <BorderBrush>
+              <SolidColorBrush>
+                <Color A="1" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </BorderBrush>
+            <StrokeBrush>
+              <SolidColorBrush>
+                <Color A="1" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </StrokeBrush>
+            <FillBrush>
+              <SolidColorBrush>
+                <Color A="0" R="0" G="0" B="0"></Color>
+              </SolidColorBrush>
+            </FillBrush>
+          </Brushes>
+          <Rotation>Rotation0</Rotation>
+          <OutlineThickness>1</OutlineThickness>
+          <IsOutlined>False</IsOutlined>
+          <BorderStyle>SolidLine</BorderStyle>
+          <Margin>
+            <DYMOThickness Left="0" Top="0" Right="0" Bottom="0" />
+          </Margin>
+          <HorizontalAlignment>Center</HorizontalAlignment>
+          <VerticalAlignment>Middle</VerticalAlignment>
+          <FitMode>AlwaysFit</FitMode>
+          <IsVertical>False</IsVertical>
+          <FormattedText>
+            <FitMode>AlwaysFit</FitMode>
+            <HorizontalAlignment>Center</HorizontalAlignment>
+            <VerticalAlignment>Middle</VerticalAlignment>
+            <IsVertical>False</IsVertical>
             <LineTextSpan>
               <TextSpan>
                 <Text>Colore: {{Color}}             TG: {{Size}}</Text>
@@ -171,11 +223,11 @@
           <ObjectLayout>
             <DYMOPoint>
               <X>0.049998727</X>
-              <Y>0.7986123</Y>
+              <Y>0.9836123</Y>
             </DYMOPoint>
             <Size>
               <Width>2.150002</Width>
-              <Height>0.37154844</Height>
+              <Height>0.18654844</Height>
             </Size>
           </ObjectLayout>
         </TextObject>
