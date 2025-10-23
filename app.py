@@ -156,7 +156,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Template path (hardcoded come richiesto)
-TEMPLATE_PATH = Path("template_update.dymo")
+TEMPLATE_PATH = Path("template_bamboom.dymo")
 DEFAULT_FILENAME_PATTERN = "{Articolo}_{Variante}.dymo"
 
 
@@ -176,7 +176,7 @@ def main():
     # Verifica che il template esista
     if not TEMPLATE_PATH.exists():
         st.error(f"❌ Template non trovato: {TEMPLATE_PATH}")
-        st.info("Assicurati che il file `template_update.dymo` sia presente nella cartella del progetto.")
+        st.info("Assicurati che il file `template_bamboom.dymo` sia presente nella cartella del progetto.")
         st.stop()
 
     # Sezione 1: Upload file
