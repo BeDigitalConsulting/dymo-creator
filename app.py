@@ -11,7 +11,7 @@ SELECTION ARCHITECTURE (Barcode-based tracking):
 - File upload change detection resets all selection state
 
 REQUIRED FILE FORMAT:
-- Single Excel/CSV file with columns: Code, Desc, Color, Size, Group, Barcode
+- Single Excel/CSV file with columns: Articolo, Descrizione Articolo, Colore, Taglia, Codice Gruppo, Barcode
 - Barcode must be unique per product (validated on upload)
 """
 
@@ -37,7 +37,8 @@ def transform_for_template(rows):
     Real columns (shown in UI):
     - Articolo → Code
     - Descrizione Articolo → Desc
-    - Variante (format: "01 3M") → Color="01", Size="3M"
+    - Colore → Color
+    - Taglia → Size
     - Barcode → Barcode (unchanged)
 
     Args:
@@ -53,14 +54,8 @@ def transform_for_template(rows):
         # Map column names
         new_row['Code'] = row.get('Articolo', '')
         new_row['Desc'] = row.get('Descrizione Articolo', '')
-
-        # Split Variante into Color and Size (format: "01 3M" → Color="01", Size="3M")
-        variante = str(row.get('Variante', ''))
-        parts = variante.split(maxsplit=1)
-        new_row['Color'] = parts[0] if len(parts) > 0 else ''
-        new_row['Size'] = parts[1] if len(parts) > 1 else ''
-
-        # Barcode stays the same
+        new_row['Color'] = row.get('Colore', '')
+        new_row['Size'] = row.get('Taglia', '')
         new_row['Barcode'] = row.get('Barcode', '')
 
         transformed.append(new_row)
@@ -184,7 +179,7 @@ def main():
     uploaded_file = st.file_uploader(
         "Carica il tuo file Excel (.xlsx, .xls) o CSV",
         type=["xlsx", "xls", "csv"],
-        help="Il file deve contenere le colonne: Articolo, Variante, Descrizione Articolo, Codice Gruppo, Barcode"
+        help="Il file deve contenere le colonne: Articolo, Colore, Taglia, Descrizione Articolo, Codice Gruppo, Barcode"
     )
 
     if uploaded_file is None:
@@ -224,7 +219,7 @@ def main():
         st.error(f"Trovati {len(duplicate_barcodes)} prodotti con codici Barcode duplicati!")
         st.warning("Ogni prodotto deve avere un codice Barcode univoco.")
         st.dataframe(
-            duplicate_barcodes[['Articolo', 'Barcode', 'Descrizione Articolo', 'Variante']].sort_values('Barcode'),
+            duplicate_barcodes[['Articolo', 'Barcode', 'Descrizione Articolo', 'Colore', 'Taglia']].sort_values('Barcode'),
             width='stretch'
         )
         st.info("Correggi i duplicati nel file EAN e ricarica.")
@@ -236,7 +231,7 @@ def main():
         st.error(f"Trovati {len(empty_barcodes)} prodotti senza codice Barcode!")
         st.warning("Tutti i prodotti devono avere un codice Barcode.")
         st.dataframe(
-            empty_barcodes[['Articolo', 'Descrizione Articolo', 'Variante']].head(20),
+            empty_barcodes[['Articolo', 'Descrizione Articolo', 'Colore', 'Taglia']].head(20),
             width='stretch'
         )
         if len(empty_barcodes) > 20:
