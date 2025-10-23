@@ -63,7 +63,9 @@
           <Data>
             <MultiDataString>
               <DataString></DataString>
-              <DataString>{{Barcode}}</DataString>
+              <DataString></DataString>
+              <DataString></DataString>
+              <DataString>8054341169317</DataString>
             </MultiDataString>
           </Data>
           <HorizontalAlignment>Center</HorizontalAlignment>
@@ -85,7 +87,7 @@
           <ObjectLayout>
             <DYMOPoint>
               <X>0.114759095</X>
-              <Y>0.06</Y>
+              <Y>0.060000114</Y>
             </DYMOPoint>
             <Size>
               <Width>2.0204809</Width>
@@ -135,10 +137,10 @@
             <IsVertical>False</IsVertical>
             <LineTextSpan>
               <TextSpan>
-                <Text>{{Code}} {{Desc}}</Text>
+                <Text>1180TE00039 Tutina apertura laterale con Coniglio Bianco 01 3M</Text>
                 <FontInfo>
                   <FontName>Segoe UI</FontName>
-                  <FontSize>6.5</FontSize>
+                  <FontSize>4.9</FontSize>
                   <IsBold>True</IsBold>
                   <IsItalic>False</IsItalic>
                   <IsUnderline>False</IsUnderline>
@@ -152,10 +154,10 @@
             </LineTextSpan>
             <LineTextSpan>
               <TextSpan>
-                <Text>Colore: {{Color}}             TG: {{Size}}</Text>
+                <Text>Colore: 01             TG: 3M</Text>
                 <FontInfo>
                   <FontName>Segoe UI</FontName>
-                  <FontSize>6.5</FontSize>
+                  <FontSize>4.9</FontSize>
                   <IsBold>True</IsBold>
                   <IsItalic>False</IsItalic>
                   <IsUnderline>False</IsUnderline>
@@ -171,7 +173,7 @@
           <ObjectLayout>
             <DYMOPoint>
               <X>0.049998727</X>
-              <Y>0.7986123</Y>
+              <Y>0.79861236</Y>
             </DYMOPoint>
             <Size>
               <Width>2.150002</Width>
